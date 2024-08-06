@@ -4,6 +4,7 @@ from manager.joystick_manager import JoystickManager
 from manager.display_manager import DisplayManager
 from manager.media_manager import MediaManager
 
+# Backup
 class DroneCaptureApp:
     SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
     BUTTON_CAPTURE_IMAGE = 2
