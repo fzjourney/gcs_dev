@@ -1,94 +1,66 @@
+import sys
+import os
+from threading import Thread
+from time import sleep
 import pygame
-import threading
-from manager.joystick_manager import JoystickManager
-from manager.display_manager import DisplayManager
-from manager.media_manager import MediaManager
 
-# Backup
-class DroneCaptureApp:
-    SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
-    BUTTON_CAPTURE_IMAGE = 2
-    BUTTON_RECORD_VIDEO = 3
-    BUTTON_STOP_VIDEO = 5
+# Add the 'manager' directory to the Python path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 
-    BUTTON_NAMES = {
-        0: "middle button (1)",
-        1: "button 2",
-        2: "button 3",
-        3: "button 4",
-        4: "button 5",
-        5: "button 6",
-        6: "button 7",
-        7: "button 8",
-        8: "button 9",
-        9: "button 10",
-        10: "button 11",
-        11: "button 12"
-    }
+from tello_manager import TelloManager
+from controller_manager import JoystickManager
 
-    AXIS_NAMES = {
-        0: "X Axis",
-        1: "Y Axis",
-        2: "Diagonal Axis",
-        3: "Zoom in/out"
-    }
-
+class DroneControlApp:
     def __init__(self):
-        pygame.init()
-        pygame.camera.init()
+        # Initialize TelloManager and JoystickManager
+        self.tello_manager = TelloManager()
         self.joystick_manager = JoystickManager()
-        self.display_manager = DisplayManager()
-        self.media_manager = MediaManager()
-        self.camera = pygame.camera.Camera(pygame.camera.list_cameras()[0])
-        self.camera.start()
-        self.record_thread = None
-
-    def record_video_task(self):
-        self.media_manager.record_video(self.camera)
 
     def run(self):
-        try:
-            while True:
-                self.display_manager.clear_screen()
+        if self.tello_manager.init_sdk_mode():  # Only proceed if SDK mode is successfully initiated
+            # Start thread to receive telemetry data
+            state_thread = Thread(target=self.tello_manager.receive_state)
+            state_thread.start()
 
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return
+            if self.tello_manager.start_video_stream():  # Only proceed if video streaming mode is successfully initiated
+                print("Video stream started. Ready to accept commands.")
 
-                axes_values = self.joystick_manager.get_axes()
-                buttons_state = self.joystick_manager.get_buttons()
+                try:
+                    while True:
+                        pygame.event.pump()  # Process events to update joystick states
 
-                for i in range(self.joystick_manager.get_axis_count()):
-                    axis_value = axes_values[i]
-                    self.display_manager.draw_text(f"{self.AXIS_NAMES.get(i, f'Axis {i}')} value: {axis_value:.2f}", (20, 20 + i * 30))
+                        self.tello_manager.send_msg('command')  # Keep-alive command to avoid drone timeouts
 
-                for i in range(self.joystick_manager.get_button_count()):
-                    button_state = buttons_state[i]
-                    self.display_manager.draw_text(f"{self.BUTTON_NAMES.get(i, f'Button {i}')} : {button_state}", (20, 140 + i * 30))
+                        # Fetch joystick buttons
+                        buttons = self.joystick_manager.get_buttons()
+                        print(f"Joystick buttons state: {buttons}")  # Debugging line to check button states
 
-                self.display_manager.draw_axes(axes_values)
-                self.display_manager.update_display()
+                        # Button 7 to take off, Button 8 to land
+                        if len(buttons) > 8:
+                            if buttons[7]:  # Button 7 for takeoff
+                                self.tello_manager.send_msg('takeoff')
+                                print('Taking off...')
+                                # Wait for a while to ensure the command is processed
+                                sleep(2)
+                            elif buttons[8]:  # Button 8 for land
+                                self.tello_manager.send_msg('land')
+                                print('Landing...')
+                                # Wait for a while to ensure the command is processed
+                                sleep(2)
+                        else:
+                            print("Joystick button index out of range.")
 
-                if buttons_state[self.BUTTON_CAPTURE_IMAGE]:
-                    img_filename = self.media_manager.capture_image(self.camera)
-                    if img_filename:
-                        print(f"Captured image: {img_filename}")
+                        sleep(0.1)  # Add delay to avoid overloading the main loop
 
-                if buttons_state[self.BUTTON_RECORD_VIDEO] and self.record_thread is None:
-                    self.record_thread = threading.Thread(target=self.record_video_task)
-                    self.record_thread.start()
+                except KeyboardInterrupt:
+                    print("Exiting...")
 
-                if buttons_state[self.BUTTON_STOP_VIDEO] and self.record_thread is not None:
-                    self.media_manager.stop_video_recording()
-                    self.record_thread.join()
-                    self.record_thread = None
-                    print("Video recording stopped")
-        except KeyboardInterrupt:
-            print("Exiting...")
-        finally:
-            self.camera.stop()
-            pygame.quit()
+                finally:
+                    # If the main loop is exited, stop all drone operations
+                    self.tello_manager.stop_drone_operations()
+                    pygame.quit()
+                    state_thread.join()
 
 if __name__ == "__main__":
-    app = DroneCaptureApp()
+    app = DroneControlApp()
     app.run()
