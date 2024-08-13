@@ -1,32 +1,64 @@
 import pygame
+import time
+from tello_manager import send_msg, state
 
-# Initialize Pygame and Joystick
-def init_joystick():
-    pygame.init()
-    pygame.joystick.init()
+class JoystickController:
+    def __init__(self):
+        pygame.init()
+        pygame.joystick.init()
 
-    if pygame.joystick.get_count() == 0:
-        print("No joystick found")
-        raise SystemExit("No joystick found")
+        if pygame.joystick.get_count() == 0:
+            print("No joystick detected")
+            exit()
 
-    joystick = pygame.joystick.Joystick(0)
-    joystick.init()
-    print(f"Joystick name: {joystick.get_name()}")
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
+        print("Joystick connected:", self.joystick.get_name())
 
-    return joystick
+    def get_joystick_input(self):
+        pygame.event.pump()
 
-# Get the list of axis values from the joystick
-def get_axes(joystick):
-    return [joystick.get_axis(i) for i in range(joystick.get_numaxes())]
+        # Mapping joystick inputs based on your provided layout
+        axis_x = self.joystick.get_axis(0)  # Roll (left/right)
+        axis_y = self.joystick.get_axis(1)  # Pitch (forward/backward)
+        zoom = self.joystick.get_axis(3)    # Throttle (up/down)
+        
+        middle_button = self.joystick.get_button(1)  # Button for takeoff/land
 
-# Get the list of button states from the joystick
-def get_buttons(joystick):
-    return [joystick.get_button(i) for i in range(joystick.get_numbuttons())]
+        return {
+            'roll': axis_x,
+            'pitch': axis_y,
+            'throttle': zoom,
+            'takeoff_land': middle_button,
+        }
 
-# Get the number of axes on the joystick
-def get_axis_count(joystick):
-    return joystick.get_numaxes()
+    def send_drone_commands(self, inputs):
+        # Convert joystick inputs to drone commands
+        roll = int(inputs['roll'] * 100)
+        pitch = int(inputs['pitch'] * 100)
+        throttle = int(inputs['throttle'] * 100)
+        yaw = 0  # Assuming you are not using yaw for now
 
-# Get the number of buttons on the joystick
-def get_button_count(joystick):
-    return joystick.get_numbuttons()
+        # Send commands to the drone based on joystick input
+        send_msg(f'rc {roll} {pitch} {throttle} {yaw}')
+
+        # Handle takeoff and landing with the middle button
+        if inputs['takeoff_land']:
+            send_msg('takeoff')
+            print('Takeoff command sent')
+            time.sleep(1)  # Simple debounce logic
+        elif inputs['takeoff_land'] == 0:
+            send_msg('land')
+            print('Land command sent')
+            time.sleep(1)  # Simple debounce logic
+
+    def run(self):
+        print("Starting Joystick Controller")
+        while True:
+            inputs = self.get_joystick_input()
+            self.send_drone_commands(inputs)
+            time.sleep(0.1)
+
+if __name__ == "__main__":
+    controller = JoystickController()
+    controller.run()
