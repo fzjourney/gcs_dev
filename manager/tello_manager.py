@@ -1,6 +1,8 @@
 import socket
 from threading import Thread
 import cv2 as cv
+import time
+
 
 class TelloManager:
     def __init__(self):
@@ -31,10 +33,22 @@ class TelloManager:
         serv_sock.close()
 
     def video_stream(self):
-        # Thread to receive video stream from the drone
         cap = cv.VideoCapture('udp://@0.0.0.0:11111')
-        if not cap.isOpened():
+        
+        retry_count = 0
+        max_retries = 5
+        timeout = 2  # seconds
+
+        while not cap.isOpened() and retry_count < max_retries:
+            print(f"Video stream not opened. Retrying... {retry_count + 1}/{max_retries}")
+            time.sleep(timeout)  # Synchronous sleep from the `time` module
             cap.open('udp://@0.0.0.0:11111')
+            retry_count += 1
+
+        if not cap.isOpened():
+            print("Failed to open video stream after multiple retries.")
+            return  # Exit the video thread if the stream cannot be opened
+
         while True:
             ret, img = cap.read()
             if ret:
@@ -42,9 +56,9 @@ class TelloManager:
                 cv.imshow('Flight', img)
             if cv.waitKey(1) & 0xFF == ord('q'):
                 break
+
         cap.release()
         cv.destroyAllWindows()
-
     def init_sdk_mode(self):
         # Initiate SDK mode
         data = self.send_msg("command")
