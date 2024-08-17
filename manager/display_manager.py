@@ -1,5 +1,4 @@
 import pygame
-import numpy as np
 import time
 
 class DisplayManager:
@@ -9,14 +8,10 @@ class DisplayManager:
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Joystick Input Display")
         self.font = pygame.font.Font(None, 24)
-        self.frame_surface = None  # Surface for the video frame
 
-    def update_frame(self, frame):
-        # Convert the OpenCV frame to Pygame Surface
-        frame = np.rot90(frame)  # Rotate the frame to match Pygame orientation
-        frame = np.flipud(frame)  # Flip the frame vertically
-        frame_surface = pygame.surfarray.make_surface(frame)
-        self.frame_surface = pygame.transform.scale(frame_surface, (640, 480))
+    def draw_text(self, text, position, color=(255, 255, 255)):
+        text_surface = self.font.render(text, True, color)
+        self.screen.blit(text_surface, position)
 
     def draw_axes(self, axes_values):
         square_size = 200
@@ -41,8 +36,6 @@ class DisplayManager:
         self.draw_text("(y)", (center_x - 10, graph_top_left_y - 30))
 
     def update_display(self):
-        if self.frame_surface:
-            self.screen.blit(self.frame_surface, (0, 0))  # Blit the frame surface onto the Pygame screen
         pygame.display.flip()
         time.sleep(0.1)
 

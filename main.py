@@ -49,7 +49,7 @@ class DroneControlApp:
             commands.append(f'{direction} {abs(diagonal_axis)}')
 
         if abs(zoom_axis) > axis_threshold * max_speed:
-            direction = 'up' if zoom_axis > 0 else 'down'
+            direction = 'down' if zoom_axis > 0 else 'up'
             commands.append(f'{direction} {abs(zoom_axis)}')
 
         current_time = pygame.time.get_ticks()

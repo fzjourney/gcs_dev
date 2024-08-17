@@ -34,7 +34,7 @@ class TelloManager:
                     self.state[item[0]] = float(item[1])
         serv_sock.close()
 
-    def video_stream(self, display_manager):
+    def video_stream(self):
         try:
             container = av.open('udp://@0.0.0.0:11111')
             stream = container.streams.video[0]
@@ -43,10 +43,7 @@ class TelloManager:
             for frame in container.decode(video=0):
                 img = frame.to_ndarray(format='bgr24')
                 img = cv.resize(img, (640, 480))
-                
-                # Convert the image to RGB and pass it to the display manager
-                img_rgb = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-                display_manager.update_frame(img_rgb)
+                cv.imshow('Flight', img)
 
                 if cv.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -65,10 +62,10 @@ class TelloManager:
             print("Error initiating SDK Mode")
             return False
 
-    def start_video_stream(self, display_manager):
+    def start_video_stream(self):
         data = self.send_msg('streamon')
         if data == 'ok':
-            thread2 = Thread(target=self.video_stream, args=(display_manager,))
+            thread2 = Thread(target=self.video_stream)
             thread2.start()
             return True
         else:
