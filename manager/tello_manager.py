@@ -2,7 +2,6 @@ import socket
 from threading import Thread
 import av
 import cv2 as cv
-import time
 
 class TelloManager:
     def __init__(self):
@@ -14,11 +13,8 @@ class TelloManager:
     def send_msg(self, command):
         try:
             self.sock.sendto(command.encode(), self.addr)
-            data, _ = self.sock.recvfrom(1024)
-            return data.decode()
         except socket.error as e:
             print(f"Error sending command {command}: {e}")
-            return ""
 
     def receive_state(self):
         serv_addr = ('', 8890)
@@ -54,23 +50,10 @@ class TelloManager:
         cv.destroyAllWindows()
 
     def init_sdk_mode(self):
-        data = self.send_msg("command")
-        if data == 'ok':
-            print("Entering SDK Mode")
-            return True
-        else:
-            print("Error initiating SDK Mode")
-            return False
+        self.send_msg("command")
 
     def start_video_stream(self):
-        data = self.send_msg('streamon')
-        if data == 'ok':
-            thread2 = Thread(target=self.video_stream)
-            thread2.start()
-            return True
-        else:
-            print("Error starting video stream")
-            return False
+        self.send_msg('streamon')
 
     def stop_drone_operations(self):
         self.send_msg('land')

@@ -19,13 +19,10 @@ class DroneControlApp:
         3: "Zoom Axis"        # Altitude control
     }
 
-    COMMAND_COOLDOWN = 0.2  # Command cooldown in seconds
-
     def __init__(self):
         self.tello_manager = TelloManager()
         self.joystick_manager = JoystickManager()
         self.display_manager = DisplayManager()
-        self.last_command_time = 0
 
     def send_axis_commands(self, axes_values):
         axis_threshold = 0.2
@@ -35,77 +32,69 @@ class DroneControlApp:
         diagonal_axis = int(axes_values[2] * max_speed)
         zoom_axis = int(axes_values[3] * max_speed)
 
-        commands = []
         if abs(x_axis) > axis_threshold * max_speed:
             direction = 'right' if x_axis > 0 else 'left'
-            commands.append(f'{direction} {abs(x_axis)}')
+            self.tello_manager.send_msg(f'{direction} {abs(x_axis)}')
 
         if abs(y_axis) > axis_threshold * max_speed:
             direction = 'back' if y_axis > 0 else 'forward'
-            commands.append(f'{direction} {abs(y_axis)}')
+            self.tello_manager.send_msg(f'{direction} {abs(y_axis)}')
 
         if abs(diagonal_axis) > axis_threshold * max_speed:
             direction = 'cw' if diagonal_axis > 0 else 'ccw'
-            commands.append(f'{direction} {abs(diagonal_axis)}')
+            self.tello_manager.send_msg(f'{direction} {abs(diagonal_axis)}')
 
         if abs(zoom_axis) > axis_threshold * max_speed:
             direction = 'down' if zoom_axis > 0 else 'up'
-            commands.append(f'{direction} {abs(zoom_axis)}')
-
-        current_time = pygame.time.get_ticks()
-        if current_time - self.last_command_time > self.COMMAND_COOLDOWN * 1000:
-            for command in commands:
-                Thread(target=self.tello_manager.send_msg, args=(command,)).start()
-                print(f'Sending command: {command}')
-            self.last_command_time = current_time
+            self.tello_manager.send_msg(f'{direction} {abs(zoom_axis)}')
 
     def control_drone(self):
-        if self.tello_manager.init_sdk_mode():
-            state_thread = Thread(target=self.tello_manager.receive_state)
-            state_thread.start()
+        self.tello_manager.init_sdk_mode()
+        state_thread = Thread(target=self.tello_manager.receive_state)
+        state_thread.start()
 
-            if self.tello_manager.start_video_stream():
-                print("Video stream started. Ready to accept commands.")
+        self.tello_manager.start_video_stream()
+        print("Video stream started. Ready to accept commands.")
 
-                try:
-                    while True:
-                        pygame.event.pump()
+        try:
+            while True:
+                pygame.event.pump()
 
-                        buttons = self.joystick_manager.get_buttons()
-                        axes = self.joystick_manager.get_axes()
+                buttons = self.joystick_manager.get_buttons()
+                axes = self.joystick_manager.get_axes()
 
-                        self.display_manager.clear_screen()
-                        self.display_manager.draw_axes(axes)
+                self.display_manager.clear_screen()
+                self.display_manager.draw_axes(axes)
 
-                        for i in range(self.joystick_manager.get_axis_count()):
-                            axis_value = axes[i]
-                            self.display_manager.draw_text(
-                                f"{self.AXIS_NAMES.get(i, f'Axis {i}')} value: {axis_value:.2f}",
-                                (20, 20 + i * 30)
-                            )
+                for i in range(self.joystick_manager.get_axis_count()):
+                    axis_value = axes[i]
+                    self.display_manager.draw_text(
+                        f"{self.AXIS_NAMES.get(i, f'Axis {i}')} value: {axis_value:.2f}",
+                        (20, 20 + i * 30)
+                    )
 
-                        if buttons[self.BUTTON_TAKEOFF]:  # Button 6 for takeoff
-                            self.tello_manager.send_msg('takeoff')
-                            print('Taking off...')
-                            pygame.time.wait(2000)  # Wait 2 seconds before the next command
-                        elif buttons[self.BUTTON_LANDING]:  # Button 7 for landing
-                            self.tello_manager.send_msg('land')
-                            print('Landing...')
-                            pygame.time.wait(2000)  # Wait 2 seconds before the next command
+                if buttons[self.BUTTON_TAKEOFF]:  # Button 6 for takeoff
+                    self.tello_manager.send_msg('takeoff')
+                    print('Taking off...')
+                    pygame.time.wait(2000)  # Wait 2 seconds before the next command
+                elif buttons[self.BUTTON_LANDING]:  # Button 7 for landing
+                    self.tello_manager.send_msg('land')
+                    print('Landing...')
+                    pygame.time.wait(2000)  # Wait 2 seconds before the next command
 
-                        # Send axis commands to the drone
-                        self.send_axis_commands(axes)
+                # Send axis commands to the drone continuously
+                self.send_axis_commands(axes)
 
-                        self.display_manager.update_display()
-                        pygame.time.wait(100)  # Wait 0.1 second before the next loop
+                self.display_manager.update_display()
+                pygame.time.wait(50)  # Reduced wait time for smoother control
 
-                except KeyboardInterrupt:
-                    print("Exiting...")
+        except KeyboardInterrupt:
+            print("Exiting...")
 
-                finally:
-                    self.tello_manager.stop_drone_operations()
-                    pygame.quit()
-                    state_thread.join()
+        finally:
+            self.tello_manager.stop_drone_operations()
+            pygame.quit()
+            state_thread.join()
 
     def run(self):
         self.control_drone()
