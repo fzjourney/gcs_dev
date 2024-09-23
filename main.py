@@ -10,28 +10,29 @@ from controller_manager import JoystickManager
 from display_manager import DisplayManager
 
 class DroneControlApp:
-    BUTTON_TAKEOFF = 6
-    BUTTON_LANDING = 7
-    AXIS_NAMES = {
-        0: "X Axis",          # -1 for left, 1 for right
-        1: "Y Axis",          # -1 for forward, 1 for backward
-        2: "Diagonal Axis",   # Rotation
-        3: "Zoom Axis"        # Altitude control
-    }
+    AXIS_TAKEOFF_LAND = 3  # Axis 3 controls takeoff/land
+    BUTTON_PHOTO = 0        # Button 1: Capture photo
+    BUTTON_VIDEO = 1        # Button 2: Start/stop video recording
+    BUTTON_Z_AXIS_UP = 2    # Button 3: Z axis +
+    BUTTON_Z_AXIS_DOWN = 3  # Button 4: Z axis -
+    BUTTON_TOGGLE_PHOTO_VIDEO = 4  # Button 5: Photo/video toggle
+    BUTTON_AUTO_FOCUS = 5   # Button 6: Auto focus
 
     def __init__(self):
         self.tello_manager = TelloManager()
         self.joystick_manager = JoystickManager()
         self.display_manager = DisplayManager()
+        self.is_recording = False  # Track if video is recording
+        self.is_photo_mode = True  # Track if in photo mode
 
     def send_axis_commands(self, axes_values):
         axis_threshold = 0.2
-        max_speed = 100 
+        max_speed = 100
         x_axis = int(axes_values[0] * max_speed)
         y_axis = int(axes_values[1] * max_speed)
         diagonal_axis = int(axes_values[2] * max_speed)
-        zoom_axis = int(axes_values[3] * max_speed)
 
+        # Horizontal and vertical movement
         if abs(x_axis) > axis_threshold * max_speed:
             direction = 'right' if x_axis > 0 else 'left'
             self.tello_manager.send_msg(f'{direction} {abs(x_axis)}')
@@ -44,17 +45,16 @@ class DroneControlApp:
             direction = 'cw' if diagonal_axis > 0 else 'ccw'
             self.tello_manager.send_msg(f'{direction} {abs(diagonal_axis)}')
 
-        if abs(zoom_axis) > axis_threshold * max_speed:
-            direction = 'down' if zoom_axis > 0 else 'up'
-            self.tello_manager.send_msg(f'{direction} {abs(zoom_axis)}')
-
     def control_drone(self):
         self.tello_manager.init_sdk_mode()
+
         state_thread = Thread(target=self.tello_manager.receive_state)
         state_thread.start()
 
         self.tello_manager.start_video_stream()
         print("Video stream started. Ready to accept commands.")
+        video_thread = Thread(target=self.tello_manager.video_stream)
+        video_thread.start()
 
         try:
             while True:
@@ -66,27 +66,56 @@ class DroneControlApp:
                 self.display_manager.clear_screen()
                 self.display_manager.draw_axes(axes)
 
-                for i in range(self.joystick_manager.get_axis_count()):
-                    axis_value = axes[i]
-                    self.display_manager.draw_text(
-                        f"{self.AXIS_NAMES.get(i, f'Axis {i}')} value: {axis_value:.2f}",
-                        (20, 20 + i * 30)
-                    )
-
-                if buttons[self.BUTTON_TAKEOFF]:  # Button 6 for takeoff
+                # Axis-based takeoff/land
+                if axes[self.AXIS_TAKEOFF_LAND] == -1:
                     self.tello_manager.send_msg('takeoff')
                     print('Taking off...')
-                    pygame.time.wait(2000)  # Wait 2 seconds before the next command
-                elif buttons[self.BUTTON_LANDING]:  # Button 7 for landing
+                elif axes[self.AXIS_TAKEOFF_LAND] == 1:
                     self.tello_manager.send_msg('land')
                     print('Landing...')
-                    pygame.time.wait(2000)  # Wait 2 seconds before the next command
 
-                # Send axis commands to the drone continuously
+                # Button-based controls
+                if buttons[self.BUTTON_PHOTO]:
+                    if self.is_photo_mode:
+                        self.tello_manager.send_msg('photo')
+                        print("Photo captured.")
+                    else:
+                        print("Not in photo mode, cannot capture photo.")
+
+                if buttons[self.BUTTON_VIDEO]:
+                    if not self.is_photo_mode:
+                        if self.is_recording:
+                            self.tello_manager.send_msg('stop video')
+                            print("Video recording stopped.")
+                            self.is_recording = False
+                        else:
+                            self.tello_manager.send_msg('start video')
+                            print("Video recording started.")
+                            self.is_recording = True
+                    else:
+                        print("Not in video mode, cannot start/stop video.")
+
+                if buttons[self.BUTTON_Z_AXIS_UP]:
+                    self.tello_manager.send_msg('up 20')  # Example altitude control
+                    print("Moving up.")
+
+                if buttons[self.BUTTON_Z_AXIS_DOWN]:
+                    self.tello_manager.send_msg('down 20')  # Example altitude control
+                    print("Moving down.")
+
+                if buttons[self.BUTTON_TOGGLE_PHOTO_VIDEO]:
+                    self.is_photo_mode = not self.is_photo_mode
+                    mode = "Photo" if self.is_photo_mode else "Video"
+                    print(f"Mode switched to {mode}.")
+
+                if buttons[self.BUTTON_AUTO_FOCUS]:
+                    self.tello_manager.send_msg('auto focus')
+                    print("Auto focus triggered.")
+
                 self.send_axis_commands(axes)
 
                 self.display_manager.update_display()
-                pygame.time.wait(50)  # Reduced wait time for smoother control
+                pygame.time.wait(50)
 
         except KeyboardInterrupt:
             print("Exiting...")
@@ -95,6 +124,7 @@ class DroneControlApp:
             self.tello_manager.stop_drone_operations()
             pygame.quit()
             state_thread.join()
+            video_thread.join()
 
     def run(self):
         self.control_drone()

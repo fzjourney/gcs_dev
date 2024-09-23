@@ -18,7 +18,7 @@ class JoystickManager:
         return [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
 
     def get_buttons(self):
-        pygame.event.pump()  # Process event queue to update button states
+        pygame.event.pump()
         button_states = [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())]
         return button_states
 
