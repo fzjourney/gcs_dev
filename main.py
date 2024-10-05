@@ -46,7 +46,7 @@ class DroneControlApp:
                         
                         self.display_manager.update_display()
 
-                        if buttons[0]:  # Capture photo when Button 1 is pressed
+                        if buttons[0]:  # Button 1 Capture photo 
                             self.tello_manager.take_photo()
                             sleep(2)
                         

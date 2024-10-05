@@ -63,25 +63,20 @@ class TelloManager:
     def take_photo(self):
         img = self.get_current_frame()
         if img is not None:
-            # Base directory for saving photos
             base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone_capture', 'img')
             
-            # Ensure the directory exists
             if not os.path.exists(base_dir):
                 os.makedirs(base_dir)
             
-            # Generate a unique filename with the current date and a random string
-            date_str = datetime.now().strftime('%Y%m%d_%H%M%S')  # Date format: YYYYMMDD_HHMMSS
-            random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=6))  # Random 6-char string
+            # Date format: YYYYMMDD_HHMMSS
+            date_str = datetime.now().strftime('%Y%m%d_%H%M%S')  
+            random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=2))  
             filename = f"{date_str}_{random_str}.jpg"
             
-            # Full photo path
             photo_path = os.path.join(base_dir, filename)
             
-            # Save the image
             cv.imwrite(photo_path, img)
             
-            # Normalize the path for printing
             photo_path_normalized = os.path.normpath(photo_path)
             print(f"Photo taken and saved to {photo_path_normalized}")
         else:
