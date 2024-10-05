@@ -1,79 +1,35 @@
+import os
 import socket
-import threading
-import cv2
-import queue
+from threading import Thread
+import cv2 as cv
+from time import sleep
+
+import random
+import string
+from datetime import datetime
+
+os.environ['OPENCV_FFMPEG_LOGLEVEL'] = 'quiet'
 
 class TelloManager:
     def __init__(self):
-        self.host = ''
-        self.port = 9000  
-        self.address = ('192.168.10.1', 8889)
-        self.state_address = ('', 8890)
-        
-        # Initialize sockets
-        self.state_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.state_socket.bind(self.state_address)
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind((self.host, self.port))
-        
-        self.tello_response = None
-        self.lock = threading.Lock()
-        
-        # Initialize state dictionary
-        self.state = {
-            'battery': 'Unknown',
-            'temperature': 'Unknown',
-            'speed': 'Unknown',
-            'altitude': 'Unknown',
-            'pitch': 'Unknown',
-            'roll': 'Unknown',
-            'yaw': 'Unknown',
-            'tof': 'Unknown',
-            'baro': 'Unknown',
-            'flight_time': 'Unknown'
-        }
+        self.addr = ('192.168.10.1', 8889)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(('', 9000))
+        self.state = {}
+        self.video_writer = None
+        self.recording = False
+        self.current_frame = None
+        self.video_stream_active = False
 
-        # Start the state update thread
-        self.state_thread = threading.Thread(target=self.receive_state)
-        self.state_thread.daemon = True
-        self.state_thread.start()
-
-    def send_msg(self, msg):
-        """Send command to Tello."""
-        self.socket.sendto(msg.encode('utf-8'), self.address)
-        self.tello_response = self.receive_msg()
-    
-    def receive_msg(self):
-        """Receive response from Tello."""
-        try:
-            response, _ = self.socket.recvfrom(1024)
-            return response.decode('utf-8')
-        except Exception as e:
-            print(f"Error receiving message: {str(e)}")
-            return None
-
-    def init_sdk_mode(self):
-        """Put Tello in SDK mode."""        
-        self.send_msg("command")
-
-    def get_battery(self):
-        """Get the battery percentage."""        
-        return self.state.get('battery', 'Unknown')
-
-    def get_temperature(self):
-        """Get the temperature (average of low and high)."""        
-        return self.state.get('temperature', 'Unknown')
-
-    def get_speed(self):
-        """Get the speed."""        
-        return self.state.get('speed', 'Unknown')
-
-    def get_altitude(self):
-        """Get the altitude."""        
-        return self.state.get('altitude', 'Unknown')
+    def send_msg(self, command):
+        self.sock.sendto(command.encode(), self.addr)
+        data, _ = self.sock.recvfrom(1024)
+        return data.decode()
 
     def receive_state(self):
-        """Continuously receive state information and update telemetry."""        
+        serv_addr = ('', 8890)
+        serv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        serv_sock.bind(serv_addr)
         while True:
             try:
                 state_data, _ = self.state_socket.recvfrom(1024)
@@ -129,42 +85,96 @@ class TelloManager:
         self.socket.close()
 
     def video_stream(self):
-        """Capture video stream using a buffer."""        
-        cap = cv2.VideoCapture('udp://0.0.0.0:11111')  
+        cap = cv.VideoCapture('udp://@0.0.0.0:11111')
         if not cap.isOpened():
-            print("Error opening video stream")
-            return
+            cap.open('udp://@0.0.0.0:11111')
 
-        cap.set(cv2.CAP_PROP_AUTO_WB, 1) 
-        cap.set(cv2.CAP_PROP_EXPOSURE, -1) 
+        cap.set(cv.CAP_PROP_BUFFERSIZE, 3)
+        self.video_stream_active = True
 
-        buffer_size = 10 
-        frame_buffer = queue.Queue(maxsize=buffer_size)
-
-        def capture_frames():
-            """Thread function to capture frames and store them in a buffer."""            
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                if frame_buffer.full():
-                    frame_buffer.get()
-
-                frame_buffer.put(frame)
-
-        capture_thread = threading.Thread(target=capture_frames)
-        capture_thread.daemon = True
-        capture_thread.start()
-
-        while True:
-            if not frame_buffer.empty():
-                frame = frame_buffer.get()
-
-                cv2.imshow("Tello Camera", frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+        while self.video_stream_active:
+            ret, img = cap.read()
+            if ret:
+                img = cv.resize(img, (640, 480))
+                self.current_frame = img  
+                cv.imshow('Flight', img)
+            if cv.waitKey(1) & 0xFF == ord('q'):
                 break
 
         cap.release()
-        cv2.destroyAllWindows()
+        cv.destroyAllWindows()
+
+    def take_photo(self):
+        img = self.get_current_frame()
+        if img is not None:
+            base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone_capture', 'img')
+            
+            if not os.path.exists(base_dir):
+                os.makedirs(base_dir)
+            
+            # Date format: YYYYMMDD_HHMMSS
+            date_str = datetime.now().strftime('%Y%m%d_%H%M%S')  
+            random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=2))  
+            filename = f"{date_str}_{random_str}.jpg"
+            
+            photo_path = os.path.join(base_dir, filename)
+            
+            cv.imwrite(photo_path, img)
+            
+            photo_path_normalized = os.path.normpath(photo_path)
+            print(f"Photo taken and saved to {photo_path_normalized}")
+        else:
+            print("Failed to capture photo")    
+            
+    def start_recording(self):
+        video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture', 'video', 'output.avi')
+        self.video_writer = cv.VideoWriter(video_path, cv.VideoWriter_fourcc(*'XVID'), 20.0, (640, 480))
+        self.recording = True
+
+        self.record_thread = Thread(target=self.record_video)
+        self.record_thread.start()
+
+    def record_video(self):
+        while self.recording:
+            img = self.get_current_frame()  
+            if img is not None:
+                self.video_writer.write(img)
+            sleep(0.1)
+
+    def stop_recording(self):
+        self.recording = False
+        if self.video_writer:
+            self.video_writer.release()
+        if self.record_thread:
+            self.record_thread.join()
+
+    def get_current_frame(self):
+        """Returns the most recent frame from the active video stream."""
+        return self.current_frame
+
+    def init_sdk_mode(self):
+        data = self.send_msg("command")
+        if data == 'ok':
+            print("Entering SDK Mode")
+            return True
+        else:
+            print("Error initiating SDK Mode")
+            return False
+
+    def start_video_stream(self):
+        data = self.send_msg('streamon')
+        if data == 'ok':
+            thread = Thread(target=self.video_stream)
+            thread.start()
+            return True
+        else:
+            print("Error starting video stream")
+            return False
+
+    def stop_drone_operations(self):
+        """Stop video stream and drone operations."""
+        data = self.send_msg('land')
+        print('Response:', data)
+        self.video_stream_active = False
+        if self.sock:
+            self.sock.close()

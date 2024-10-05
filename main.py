@@ -1,136 +1,78 @@
 import sys
 import os
 from threading import Thread
+from time import sleep
 import tkinter as tk
 from tkinter import ttk
 
+import pygame
+
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
 from tello_manager import TelloManager
+from controller_manager import JoystickManager
 from display_manager import DisplayManager
-
-class DroneGuiManager:
-    def __init__(self, drone_control_app):
-        self.app = drone_control_app
-        self.root = tk.Tk()
-        self.root.title("Drone Control Panel")
-
-        self.takeoff_button = ttk.Button(self.root, text="Takeoff", command=self.takeoff)
-        self.takeoff_button.grid(row=0, column=0, padx=10, pady=10)
-
-        self.land_button = ttk.Button(self.root, text="Land", command=self.land)
-        self.land_button.grid(row=1, column=1, padx=10, pady=10)
-
-        self.mode_label = tk.Label(self.root, text="Mode: Video")
-        self.mode_label.grid(row=1, column=0, columnspan=2, pady=10)
-
-        self.create_slider("Focal Length:", 50, 0, 100, 2)
-        self.create_slider("Tint:", 1.0, 0.0, 2.0, 3)
-        self.create_slider("Temperature (K):", 1901, 1000, 10000, 4)
-
-        self.create_status_display()
-
-    def create_slider(self, text, initial_value, min_value, max_value, row):
-        label = tk.Label(self.root, text=text)
-        label.grid(row=row, column=0, padx=10, pady=5)
-
-        slider = tk.Scale(self.root, from_=min_value, to=max_value, orient="horizontal", resolution=0.01)
-        slider.set(initial_value)
-        slider.grid(row=row, column=1, padx=10, pady=5)
-
-    def create_status_display(self):
-        """Creates the telemetry display in the GUI."""
-        status_frame = tk.Frame(self.root)
-        status_frame.grid(row=9, column=0, columnspan=2, padx=10, pady=10)
-
-        self.battery_label = self.create_status_label(status_frame, "Battery:", "Unknown", 0)
-        self.temperature_label = self.create_status_label(status_frame, "Temperature:", "Unknown", 1)
-        self.speed_label = self.create_status_label(status_frame, "Speed:", "Unknown", 2)
-        self.altitude_label = self.create_status_label(status_frame, "Altitude:", "Unknown", 3)
-
-        # Start telemetry update loop
-        self.update_telemetry()
-
-    def create_status_label(self, frame, text, value, row):
-        label = tk.Label(frame, text=text)
-        label.grid(row=row, column=0, padx=5, pady=2)
-
-        value_label = tk.Label(frame, text=value)
-        value_label.grid(row=row, column=1, padx=5, pady=2)
-        return value_label
-
-    def update_telemetry(self):
-        """Periodically updates telemetry data from the drone and updates the GUI."""
-        telemetry_data = self.app.tello_manager.state
-        print(f"Telemetry datassss: {telemetry_data}")  # Debug print
-
-        if telemetry_data:
-            battery = telemetry_data.get('battery', 'Unknown')
-            temperature = telemetry_data.get('temperature', 'Unknown')
-            speed = telemetry_data.get('speed', 'Unknown')
-            altitude = telemetry_data.get('altitude', 'Unknown')
-
-            # Update the labels with new telemetry data
-            self.battery_label.config(text=str(battery))
-            self.temperature_label.config(text=str(temperature))
-            self.speed_label.config(text=str(speed))
-            self.altitude_label.config(text=str(altitude))
-
-        # Schedule the next update
-        self.root.after(1000, self.update_telemetry)
-
-
-
-    def takeoff(self):
-        self.app.tello_manager.send_msg("takeoff")
-        print("Drone taking off")
-
-    def land(self):
-        self.app.tello_manager.send_msg("land")
-        print("Drone landing")
-
-    def run(self):
-        self.root.mainloop()
 
 class DroneControlApp:
     def __init__(self):
         self.tello_manager = TelloManager()
+        self.joystick_manager = JoystickManager()
         self.display_manager = DisplayManager()
-        # Removed joystick manager initialization
-        self.is_recording = False
-        self.is_photo_mode = True
-        self.gui = DroneGuiManager(self)
-
-    def control_drone(self):
-        """Main control loop for drone actions."""    
-        self.tello_manager.init_sdk_mode()
-
-        state_thread = Thread(target=self.tello_manager.receive_state, daemon=True)
-        state_thread.start()
-
-        self.tello_manager.start_video_stream()
-        print("Video stream started. Ready to accept commands.")
-        video_thread = Thread(target=self.tello_manager.video_stream, daemon=True)
-        video_thread.start()
-
-        try:
-            while True:
-                # Main loop can stay empty as telemetry and control are managed by threads
-                pass
-
-        except KeyboardInterrupt:
-            print("Exiting...")
-
-        finally:
-            self.tello_manager.stop_drone_operations()
-            video_thread.join()
 
     def run(self):
-        """Run the main drone control application and GUI."""        
-        control_thread = Thread(target=self.control_drone, daemon=True)
-        control_thread.start()
+        if self.tello_manager.init_sdk_mode(): 
+            state_thread = Thread(target=self.tello_manager.receive_state)
+            state_thread.start()
 
-        self.gui.run()
+            if self.tello_manager.start_video_stream(): 
+                print("1")
+
+                try:
+                    while True:
+                        pygame.event.pump()
+
+                        self.tello_manager.send_msg('command')
+
+                        buttons = self.joystick_manager.get_buttons()
+                        axes = self.joystick_manager.get_axes()
+                        self.display_manager.clear_screen()
+                        self.display_manager.draw_axes(axes)
+
+                        for i, button in enumerate(buttons):
+                            button_label = f"Button {i+1}: {'1' if button else '0'}"
+                            self.display_manager.draw_text(button_label, (10, 30 + i * 20))  
+                        
+                        for i, axis_value in enumerate(axes):    
+                            axis_label = f"Axis {i+1}: {axis_value:.2f}"
+                            self.display_manager.draw_text(axis_label, (10, 300 + i * 20))
+                        
+                        self.display_manager.update_display()
+
+                        if buttons[0]:  # Button 1 Capture photo 
+                            self.tello_manager.take_photo()
+                            sleep(2)
+                        
+                        if len(buttons) > 7:
+                            if buttons[6]:  # Button 6 for takeoff
+                                self.tello_manager.send_msg('takeoff')
+                                print('Takeoff')
+                                sleep(2)
+                                
+                            elif buttons[7]:  # Button 7 for land
+                                self.tello_manager.send_msg('land')
+                                print('Land')
+                                sleep(2)
+
+                        sleep(0.1)
+
+                except KeyboardInterrupt:
+                    print("0")
+
+                finally:
+                    self.tello_manager.stop_drone_operations()
+                    pygame.quit()
+                    state_thread.join()
 
 if __name__ == "__main__":
     app = DroneControlApp()
