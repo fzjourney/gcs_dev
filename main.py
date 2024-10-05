@@ -4,59 +4,69 @@ from threading import Thread
 from time import sleep
 import pygame
 
-# Add the 'manager' directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
+from display_manager import DisplayManager
 
 class DroneControlApp:
     def __init__(self):
-        # Initialize TelloManager and JoystickManager
         self.tello_manager = TelloManager()
         self.joystick_manager = JoystickManager()
+        self.display_manager = DisplayManager()
 
     def run(self):
-        if self.tello_manager.init_sdk_mode():  # Only proceed if SDK mode is successfully initiated
-            # Start thread to receive telemetry data
+        if self.tello_manager.init_sdk_mode(): 
             state_thread = Thread(target=self.tello_manager.receive_state)
             state_thread.start()
 
-            if self.tello_manager.start_video_stream():  # Only proceed if video streaming mode is successfully initiated
-                print("Video stream started. Ready to accept commands.")
+            if self.tello_manager.start_video_stream(): 
+                print("1")
 
                 try:
                     while True:
-                        pygame.event.pump()  # Process events to update joystick states
+                        pygame.event.pump()
 
-                        self.tello_manager.send_msg('command')  # Keep-alive command to avoid drone timeouts
+                        self.tello_manager.send_msg('command')
 
-                        # Fetch joystick buttons
                         buttons = self.joystick_manager.get_buttons()
-                        print(f"Joystick buttons state: {buttons}")  # Debugging line to check button states
+                        axes = self.joystick_manager.get_axes()
+                        self.display_manager.clear_screen()
+                        self.display_manager.draw_axes(axes)
 
-                        # Button 7 to take off, Button 8 to land
-                        if len(buttons) > 8:
-                            if buttons[7]:  # Button 7 for takeoff
+                        for i, button in enumerate(buttons):
+                            button_label = f"Button {i+1}: {'1' if button else '0'}"
+                            self.display_manager.draw_text(button_label, (10, 30 + i * 20))  
+                        
+                        for i, axis_value in enumerate(axes):    
+                            axis_label = f"Axis {i+1}: {axis_value:.2f}"
+                            self.display_manager.draw_text(axis_label, (10, 300 + i * 20))
+                        
+                        self.display_manager.update_display()
+
+                        if buttons[0]:  # Capture photo when Button 1 is pressed
+                            self.tello_manager.take_photo()
+                            sleep(2)
+                        
+                        if len(buttons) > 7:
+                            if buttons[6]:  # Button 6 for takeoff
                                 self.tello_manager.send_msg('takeoff')
-                                print('Taking off...')
-                                # Wait for a while to ensure the command is processed
+                                print('Takeoff')
                                 sleep(2)
-                            elif buttons[8]:  # Button 8 for land
+                                
+                            elif buttons[7]:  # Button 7 for land
                                 self.tello_manager.send_msg('land')
-                                print('Landing...')
-                                # Wait for a while to ensure the command is processed
+                                print('Land')
                                 sleep(2)
-                        else:
-                            print("Joystick button index out of range.")
 
-                        sleep(0.1)  # Add delay to avoid overloading the main loop
+                        sleep(0.1)
 
                 except KeyboardInterrupt:
-                    print("Exiting...")
+                    print("0")
 
                 finally:
-                    # If the main loop is exited, stop all drone operations
                     self.tello_manager.stop_drone_operations()
                     pygame.quit()
                     state_thread.join()
