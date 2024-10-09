@@ -1,14 +1,11 @@
-# Ignore all files inside the img, log, and video folders
 drone_capture/img/*
 drone_capture/log/*
 drone_capture/video/*
 
-# Keep the directories themselves
 !drone_capture/img/
 !drone_capture/log/
 !drone_capture/video/
 
-# Ensure .gitkeep files are kept if they exist
 drone_capture/img/.gitkeep
 drone_capture/log/.gitkeep
 drone_capture/video/.gitkeep
