@@ -19,6 +19,7 @@ class DroneControlApp:
         self.tello_manager = TelloManager()
         self.joystick_manager = JoystickManager()
         self.display_manager = DisplayManager()
+        self.recording_active = False
 
     def run(self):
         if self.tello_manager.init_sdk_mode(): 
@@ -49,20 +50,49 @@ class DroneControlApp:
                         
                         self.display_manager.update_display()
 
-                        if buttons[0]:  # Button 1 Capture photo 
+                        # Button 1 Capture photo 
+                        if buttons[0]:  
                             self.tello_manager.take_photo()
                             sleep(2)
+                            
+                        # Button 2 Start/stop recording
+                        if buttons[1]:
+                            if not self.recording_active:
+                                self.tello_manager.start_recording()
+                                self.recording_active = True
+                                print('Recording started')
+                            else:
+                                self.tello_manager.stop_recording()
+                                self.recording_active = False
+                                print('Recording stopped')
+                            sleep(1)
+                        
+                        # Button 3 Pause recording
+                        if buttons[2]:
+                            if self.recording_active:
+                                self.tello_manager.pause_recording()
+                            sleep(1)
+                        
+                        # Button 4 - Resume recording
+                        if buttons[3]:
+                            if self.recording_active:
+                                self.tello_manager.resume_recording()
+                            sleep(1)
+                            
+                        sleep(0.1)
                         
                         if len(buttons) > 7:
-                            if buttons[6]:  # Button 6 for takeoff
+                            # Button 7 for takeoff
+                            if buttons[6]:
                                 self.tello_manager.send_msg('takeoff')
                                 print('Takeoff')
-                                sleep(2)
+                                sleep(1)
                                 
-                            elif buttons[7]:  # Button 7 for land
+                            # Button 8 for land
+                            elif buttons[7]:  
                                 self.tello_manager.send_msg('land')
                                 print('Land')
-                                sleep(2)
+                                sleep(1)
 
                         sleep(0.1)
 

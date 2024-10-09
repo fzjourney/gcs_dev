@@ -1,6 +1,6 @@
 import os
 import socket
-from threading import Thread
+from threading import Thread, Lock
 import cv2 as cv
 from time import sleep
 
@@ -9,6 +9,7 @@ import string
 from datetime import datetime
 
 os.environ['OPENCV_FFMPEG_LOGLEVEL'] = 'quiet'
+os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'loglevel;error'
 
 class TelloManager:
     def __init__(self):
@@ -18,8 +19,11 @@ class TelloManager:
         self.state = {}
         self.video_writer = None
         self.recording = False
+        self.paused = False
+        self.lock = Lock()
         self.current_frame = None
         self.video_stream_active = False
+        self.record_thread = None
 
     def send_msg(self, command):
         self.sock.sendto(command.encode(), self.addr)
@@ -34,7 +38,7 @@ class TelloManager:
             try:
                 state_data, _ = self.state_socket.recvfrom(1024)
                 state_str = state_data.decode('utf-8')
-                print(f"Received state data: {state_str}")  # Debug print
+                print(f"Received state data: {state_str}") 
                 self.parse_state_data(state_str)
             except Exception as e:
                 print(f"Error receiving state: {str(e)}")
@@ -42,10 +46,9 @@ class TelloManager:
 
 
     def parse_state_data(self, state_str):
-        """Parse state data and update the state dictionary."""
         try:
             data_dict = dict(item.split(':') for item in state_str.split(';') if item)
-            print(f"Parsed state data: {data_dict}")  # Debug print
+            print(f"Parsed state data: {data_dict}") 
 
             with self.lock:
                 self.state['battery'] = data_dict.get('bat', 'Unknown')
@@ -69,16 +72,13 @@ class TelloManager:
         except Exception as e:
             print(f"Error parsing state data: {str(e)}")
 
-    def start_video_stream(self):
-        """Start video streaming."""        
+    def start_video_stream(self):     
         self.send_msg("streamon")
 
-    def stop_video_stream(self):
-        """Stop video streaming."""        
+    def stop_video_stream(self):  
         self.send_msg("streamoff")
 
-    def stop_drone_operations(self):
-        """Stop all drone operations and clean up."""        
+    def stop_drone_operations(self):       
         self.send_msg("land")
         self.stop_video_stream()
         self.state_socket.close()
@@ -127,29 +127,55 @@ class TelloManager:
             print("Failed to capture photo")    
             
     def start_recording(self):
-        video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture', 'video', 'output.avi')
-        self.video_writer = cv.VideoWriter(video_path, cv.VideoWriter_fourcc(*'XVID'), 20.0, (640, 480))
+        # Create a unique filename for the video
+        base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone_capture', 'video')
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+
+        date_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=2))
+        video_filename = f"{date_str}_{random_str}.mp4"
+        video_path = os.path.join(base_dir, video_filename)
+
+        self.video_writer = cv.VideoWriter(video_path, cv.VideoWriter_fourcc(*'mp4v'), 20.0, (640, 480))
         self.recording = True
+        self.paused = False
 
-        self.record_thread = Thread(target=self.record_video)
-        self.record_thread.start()
+        if self.record_thread is None or not self.record_thread.is_alive():
+            self.record_thread = Thread(target=self.record_video)
+            self.record_thread.start()
 
-    def record_video(self):
-        while self.recording:
-            img = self.get_current_frame()  
-            if img is not None:
-                self.video_writer.write(img)
-            sleep(0.1)
-
+        print(f"Recording started, saving to {video_path}")
+        
     def stop_recording(self):
         self.recording = False
         if self.video_writer:
-            self.video_writer.release()
+            self.video_writer.release() 
         if self.record_thread:
-            self.record_thread.join()
+            self.record_thread.join() 
+        self.record_thread = None
+        print("Recording stopped")
+
+    def pause_recording(self):
+        with self.lock:
+            self.paused = True
+        print("Recording paused")
+
+    def resume_recording(self):
+        with self.lock:
+            self.paused = False
+        print("Recording resumed")
+
+    def record_video(self):
+        while self.recording:
+            with self.lock:
+                if not self.paused:
+                    img = self.get_current_frame()  
+                    if img is not None:
+                        self.video_writer.write(img)  
+            sleep(0.1)
 
     def get_current_frame(self):
-        """Returns the most recent frame from the active video stream."""
         return self.current_frame
 
     def init_sdk_mode(self):
@@ -172,7 +198,6 @@ class TelloManager:
             return False
 
     def stop_drone_operations(self):
-        """Stop video stream and drone operations."""
         data = self.send_msg('land')
         print('Response:', data)
         self.video_stream_active = False

@@ -1,2 +1,11 @@
-# Ignore all __pycache__ directories
-*.__pycache__
+/drone_capture/img/*
+!/drone_capture/img/.gitkeep
+
+/drone_capture/video/*
+!/drone_capture/video/.gitkeep
+
+__pycache__/*
+!__pycache__/.gitkeep
+
+manager/__pycache__/*
+!manager/__pycache__/.gitkeep
