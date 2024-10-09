@@ -1,7 +1,4 @@
 # Ignore all files inside the drone_capture/img and drone_capture/video folders
-/drone_capture/img/*
-
-/drone_capture/video/*
 
 # Ignore all files in __pycache__ folders but keep the folders
 __pycache__/*
@@ -10,3 +7,8 @@ __pycache__/*
 manager/__pycache__/*
 !manager/__pycache__/.gitkeep
 
+# Ignore all files inside the drone_capture/img folder
+/drone_capture/img/*
+
+# Keep the img folder itself
+!/drone_capture/img/
