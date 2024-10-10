@@ -1,5 +1,7 @@
 {
     "python.analysis.extraPaths": [
         "./manager"
-    ]
+    ],
+    "git.ignoreLimitWarning": true
+    
 }
