@@ -1,5 +1,5 @@
-drone_capture/img/*
-drone_capture/log/*
-drone_capture/video/*
-__pycache__/*
-manager/__pycache__/*
+__pycache__/*.pyc
+manager/__pycache__/*.pyc
+*.jpg
+*.png
+*.mp4
