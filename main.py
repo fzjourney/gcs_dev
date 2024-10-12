@@ -14,7 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
 from display_manager import DisplayManager
-from drone_control_ui import DroneControlAppUI
+from drone_ui_manager import DroneControlAppUIManager
 
 class DroneControlApp:
     def __init__(self):
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # Create the main window instance
-    window = DroneControlAppUI()
+    window = DroneControlAppUIManager()
     
     # Show the main window
     window.show()

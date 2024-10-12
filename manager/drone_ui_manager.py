@@ -12,7 +12,7 @@ from time import sleep
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
 
-class DroneControlAppUI(QWidget):
+class DroneControlAppUIManager(QWidget):
     def __init__(self):
         super().__init__()
         self.tello_manager = TelloManager()
@@ -196,6 +196,6 @@ class DroneControlAppUI(QWidget):
 # Run the application
 if __name__ == "__main__":
     app = QApplication([])
-    window = DroneControlAppUI()
+    window = DroneControlAppUIManager()
     window.show()
     app.exec()
