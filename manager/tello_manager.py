@@ -36,9 +36,9 @@ class TelloManager:
         serv_sock.bind(serv_addr)
         while True:
             try:
-                state_data, _ = self.state_socket.recvfrom(1024)
+                state_data, _ = serv_sock.recvfrom(1024)
                 state_str = state_data.decode('utf-8')
-                print(f"Received state data: {state_str}") 
+                print(f"Received state data: {state_str}")
                 self.parse_state_data(state_str)
             except Exception as e:
                 print(f"Error receiving state: {str(e)}")
@@ -78,31 +78,32 @@ class TelloManager:
     def stop_video_stream(self):  
         self.send_msg("streamoff")
 
-    def stop_drone_operations(self):       
-        self.send_msg("land")
-        self.stop_video_stream()
-        self.state_socket.close()
-        self.socket.close()
+    def stop_drone_operations(self):
+        data = self.send_msg('land')
+        print('Response:', data)
+        self.video_stream_active = False
+        if self.sock:
+            self.sock.close()
+        if hasattr(self, 'state_socket') and self.state_socket:
+            self.state_socket.close()  # Ensure the state socket is closed
+
 
     def video_stream(self):
         cap = cv.VideoCapture('udp://@0.0.0.0:11111')
         if not cap.isOpened():
-            cap.open('udp://@0.0.0.0:11111')
-
-        cap.set(cv.CAP_PROP_BUFFERSIZE, 3)
+            print("Error: Could not open video stream.")
+            return
         self.video_stream_active = True
 
         while self.video_stream_active:
             ret, img = cap.read()
             if ret:
                 img = cv.resize(img, (640, 480))
-                self.current_frame = img  
-                cv.imshow('Flight', img)
-            if cv.waitKey(1) & 0xFF == ord('q'):
-                break
+                self.current_frame = img  # Store the current frame
+            else:
+                self.current_frame = None  # Handle the case where frame capture fails
 
         cap.release()
-        cv.destroyAllWindows()
 
     def take_photo(self):
         img = self.get_current_frame()
@@ -176,7 +177,9 @@ class TelloManager:
             sleep(0.1)
 
     def get_current_frame(self):
-        return self.current_frame
+        """Return the latest captured frame for display."""
+        with self.lock:
+            return self.current_frame
 
     def init_sdk_mode(self):
         data = self.send_msg("command")

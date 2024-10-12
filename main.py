@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import pygame
+from PySide6.QtWidgets import QApplication
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
@@ -13,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
 from display_manager import DisplayManager
+from drone_control_ui import DroneControlAppUI
 
 class DroneControlApp:
     def __init__(self):
@@ -105,5 +107,14 @@ class DroneControlApp:
                     state_thread.join()
 
 if __name__ == "__main__":
-    app = DroneControlApp()
-    app.run()
+    # Create the application instance
+    app = QApplication(sys.argv)
+    
+    # Create the main window instance
+    window = DroneControlAppUI()
+    
+    # Show the main window
+    window.show()
+    
+    # Execute the application
+    sys.exit(app.exec())
