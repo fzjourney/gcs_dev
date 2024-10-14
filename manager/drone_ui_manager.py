@@ -1,4 +1,3 @@
-# drone_control_ui.py
 import sys
 import os
 import cv2
@@ -8,7 +7,6 @@ from PySide6.QtGui import QImage, QPixmap
 from threading import Thread
 from time import sleep
 
-# Import your drone management classes
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
 
@@ -19,18 +17,15 @@ class DroneControlAppUIManager(QWidget):
         self.joystick_manager = JoystickManager()
         self.init_ui()
         
-        # Start the drone SDK and state thread
         if self.tello_manager.init_sdk_mode():
             self.state_thread = Thread(target=self.tello_manager.receive_state)
             self.state_thread.start()
         
-        # Start the video stream
         self.tello_manager.start_video_stream()
         
-        # Create a timer for updating the video feed
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_video_feed)
-        self.timer.start(30)  # Update every 30 ms
+        self.timer.start(30) 
         
         self.recording_active = False
 
@@ -38,15 +33,13 @@ class DroneControlAppUIManager(QWidget):
         self.setWindowTitle("Drone Control Interface")
         self.setGeometry(100, 100, 800, 500)
         
-        self.setWindowState(Qt.WindowMaximized)  # Fullscreen
+        self.setWindowState(Qt.WindowMaximized) 
         self.setWindowFlag(Qt.WindowStaysOnBottomHint, False)
 
         main_layout = QHBoxLayout(self)
 
-        # Left side layout (Controls, Data)
         left_layout = QVBoxLayout()
         
-        # Takeoff and Land buttons
         takeoff_button = QPushButton("Takeoff")
         takeoff_button.setStyleSheet("font-size: 20px; padding: 10px;")
         takeoff_button.clicked.connect(self.takeoff)
@@ -58,7 +51,6 @@ class DroneControlAppUIManager(QWidget):
         left_layout.addWidget(takeoff_button)
         left_layout.addWidget(land_button)
 
-        # Filter buttons
         filter_group = QGroupBox("Filter Camera")
         filter_group.setStyleSheet("font-size: 20px")
         filter_layout = QGridLayout()
@@ -76,7 +68,7 @@ class DroneControlAppUIManager(QWidget):
         invert_button.setStyleSheet("font-size: 20px; padding: 10px;")
 
         normal_button = QPushButton("Normal")
-        normal_button.clicked.connect(lambda: self.set_filter("normal"))  # Reset to normal
+        normal_button.clicked.connect(lambda: self.set_filter("normal"))  
         normal_button.setStyleSheet("font-size: 20px; padding: 10px;")
 
         filter_layout.addWidget(normal_button, 1, 0) 
@@ -87,12 +79,10 @@ class DroneControlAppUIManager(QWidget):
         filter_group.setLayout(filter_layout)
         left_layout.addWidget(filter_group)
 
-        # Metrics display (Placeholder)
         metrics_group = QGroupBox("Metrics")
         metrics_group.setStyleSheet("font-size: 20px")
         metrics_layout = QVBoxLayout()
 
-        # Placeholder labels
         self.temp_label = QLabel("Temperature: --°C")
         self.speed_label = QLabel("Speed: -- km/s")
         self.altitude_label = QLabel("Altitude: -- m")
@@ -111,20 +101,16 @@ class DroneControlAppUIManager(QWidget):
         metrics_group.setLayout(metrics_layout)
         left_layout.addWidget(metrics_group)
 
-        # Add left layout to main layout with stretch factor
         main_layout.addLayout(left_layout, 8) 
 
-        # Right side layout (Video Stream)
         right_layout = QVBoxLayout()
 
-        # Placeholder for video stream
         self.video_label = QLabel("Video Stream")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("background-color: transparent; color: white; font-size: 18px;")
-        self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Make video label expandable
+        self.video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  
         right_layout.addWidget(self.video_label)
 
-        # Add right layout to main layout with stretch factor
         main_layout.addLayout(right_layout, 14)  
 
     def takeoff(self):
@@ -146,30 +132,28 @@ class DroneControlAppUIManager(QWidget):
 
     def update_video_feed(self):
         """Capture video from the drone's camera and display it with applied filters."""
-        frame = self.tello_manager.get_current_frame()  # Get the current frame from TelloManager
+        frame = self.tello_manager.get_current_frame() 
         if frame is not None:
-            # Apply filters based on the selected type
+            # Black and White Filter
             if self.current_filter == "bw":
-                # Convert the frame to grayscale
                 gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  
-                # Apply a binary threshold to create a black and white effect
                 _, frame = cv2.threshold(gray_frame, 128, 255, cv2.THRESH_BINARY)  
-                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)  # Convert back to BGR for displaying
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) 
+            # Greyscale Filter
             elif self.current_filter == "grayscale":
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # Grayscale filter
-                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)  # Convert grayscale images to BGR for displaying
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) 
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) 
+            # Invert Filter
             elif self.current_filter == "invert":
-                frame = cv2.bitwise_not(frame)  # Invert filter
+                frame = cv2.bitwise_not(frame)  
+            # No Filter
             elif self.current_filter == "normal":
-                # No filter applied, use the original frame
                 pass
-
-            # Resize the frame to fit the QLabel
+            
             frame_height, frame_width, _ = frame.shape
             label_height = self.video_label.height()
             label_width = self.video_label.width()
 
-            # Maintain aspect ratio
             if frame_width / frame_height > label_width / label_height:
                 new_width = label_width
                 new_height = int(label_width * frame_height / frame_width)
@@ -177,23 +161,19 @@ class DroneControlAppUIManager(QWidget):
                 new_height = label_height
                 new_width = int(label_height * frame_width / frame_height)
 
-            # Resize the frame
             frame = cv2.resize(frame, (new_width, new_height))
 
-            # Convert the frame to QImage and display it
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  
             height, width, channel = frame.shape
             bytes_per_line = 3 * width
             q_img = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
     def closeEvent(self, event):
-        """Release the video capture and stop the Tello operations when the window is closed."""
         self.cap.release()
         self.tello_manager.stop_drone_operations()
         event.accept()
 
-# Run the application
 if __name__ == "__main__":
     app = QApplication([])
     window = DroneControlAppUIManager()

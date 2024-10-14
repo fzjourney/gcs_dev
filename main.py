@@ -107,14 +107,7 @@ class DroneControlApp:
                     state_thread.join()
 
 if __name__ == "__main__":
-    # Create the application instance
     app = QApplication(sys.argv)
-    
-    # Create the main window instance
     window = DroneControlAppUIManager()
-    
-    # Show the main window
     window.show()
-    
-    # Execute the application
     sys.exit(app.exec())
