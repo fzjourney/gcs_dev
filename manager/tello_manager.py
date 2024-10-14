@@ -85,7 +85,7 @@ class TelloManager:
         if self.sock:
             self.sock.close()
         if hasattr(self, 'state_socket') and self.state_socket:
-            self.state_socket.close()  # Ensure the state socket is closed
+            self.state_socket.close() 
 
 
     def video_stream(self):
@@ -99,9 +99,9 @@ class TelloManager:
             ret, img = cap.read()
             if ret:
                 img = cv.resize(img, (640, 480))
-                self.current_frame = img  # Store the current frame
+                self.current_frame = img 
             else:
-                self.current_frame = None  # Handle the case where frame capture fails
+                self.current_frame = None 
 
         cap.release()
 
@@ -128,7 +128,6 @@ class TelloManager:
             print("Failed to capture photo")    
             
     def start_recording(self):
-        # Create a unique filename for the video
         base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone_capture', 'video')
         if not os.path.exists(base_dir):
             os.makedirs(base_dir)
