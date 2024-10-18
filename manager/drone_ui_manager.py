@@ -14,28 +14,24 @@ from controller_manager import JoystickManager
 class DroneControlAppUIManager(QWidget):
     def __init__(self, tello_manager):
         super().__init__()
-        self.tello_manager = tello_manager  # Use shared TelloManager instance
+        self.tello_manager = tello_manager  
         self.joystick_manager = JoystickManager()
         self.init_ui()
 
-        # Ensure SDK mode is initiated before starting the state thread
         if self.tello_manager.init_sdk_mode():
             self.state_thread = Thread(target=self.tello_manager.receive_state, daemon=True)
             self.state_thread.start()
 
         self.tello_manager.start_video_stream()
 
-        # Update video feed every 30 milliseconds
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_video_feed)
         self.timer.start(50)
 
-        # Update telemetry metrics every second
         self.telemetry_timer = QTimer(self)
         self.telemetry_timer.timeout.connect(self.update_telemetry_metrics)
         self.telemetry_timer.start(1000)
 
-        # Update joystick data every 100 ms
         self.joystick_timer = QTimer(self)
         self.joystick_timer.timeout.connect(self.update_joystick_display)
         self.joystick_timer.start(100)
@@ -50,11 +46,8 @@ class DroneControlAppUIManager(QWidget):
         self.setWindowFlag(Qt.WindowStaysOnBottomHint, False)
 
         main_layout = QHBoxLayout(self)
-
-        # Left layout: control buttons and metrics
         left_layout = QVBoxLayout()
 
-        # Takeoff and Land buttons
         takeoff_button = QPushButton("Takeoff")
         takeoff_button.setStyleSheet("font-size: 20px; padding: 10px;")
         takeoff_button.clicked.connect(self.takeoff)
@@ -66,15 +59,12 @@ class DroneControlAppUIManager(QWidget):
         left_layout.addWidget(takeoff_button)
         left_layout.addWidget(land_button)
 
-        # Camera filter controls
         filter_group = self.create_filter_controls()
         left_layout.addWidget(filter_group)
 
-        # Telemetry metrics display
         metrics_group = self.create_metrics_display()
         left_layout.addWidget(metrics_group)
 
-        # Log display area
         log_group = QGroupBox("Log")
         log_group.setStyleSheet("font-size: 20px")
         log_layout = QVBoxLayout()
@@ -86,7 +76,6 @@ class DroneControlAppUIManager(QWidget):
         log_group.setLayout(log_layout)
         left_layout.addWidget(log_group)
 
-        # Joystick inputs display area
         joystick_group = QGroupBox("Joystick Inputs")
         joystick_group.setStyleSheet("font-size: 20px")
         joystick_layout = QVBoxLayout()
@@ -99,11 +88,7 @@ class DroneControlAppUIManager(QWidget):
         left_layout.addWidget(joystick_group)
 
         main_layout.addLayout(left_layout, 8)
-
-        # Right layout: video feed and telemetry
         right_layout = QVBoxLayout()
-
-        # Video feed container
         video_container = QStackedLayout()
 
         self.video_label = QLabel("Video Stream")
@@ -116,7 +101,6 @@ class DroneControlAppUIManager(QWidget):
 
         right_layout.addLayout(video_container)
 
-        # Add telemetry metrics (battery, pitch, roll, yaw)
         telemetry_layout = QHBoxLayout()
         self.battery_label = QLabel("Battery: --%")
         self.pitch_label = QLabel("Pitch: --°")
@@ -135,8 +119,6 @@ class DroneControlAppUIManager(QWidget):
             telemetry_layout.addWidget(label)
 
         right_layout.addLayout(telemetry_layout)
-
-        # Add both layouts to the main layout
         main_layout.addLayout(right_layout, 14)
 
         self.setLayout(main_layout)
@@ -231,14 +213,11 @@ class DroneControlAppUIManager(QWidget):
         buttons = self.joystick_manager.get_buttons()
         axes = self.joystick_manager.get_axes()
         
-        # Format the joystick data and update the display
         joystick_text = "Joystick Inputs:\n"
         
-        # Display button states
         for i, button in enumerate(buttons):
             joystick_text += f"Button {i+1}: {'Pressed' if button else 'Released'}\n"
         
-        # Display axis states
         for i, axis_value in enumerate(axes):
             joystick_text += f"Axis {i+1}: {axis_value:.2f}\n"
         

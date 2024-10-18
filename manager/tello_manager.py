@@ -196,7 +196,7 @@ class TelloManager:
                         self.video_writer.write(frame)
                         # print("Writing frame...")
                 elif self.paused:
-                    print("Recording paused...")  # To check if paused correctly
+                    print("Recording paused...")  
             sleep(0.05)
 
     def get_current_frame(self):
