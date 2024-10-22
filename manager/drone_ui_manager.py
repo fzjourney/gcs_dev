@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QTextEdit, QGroupBox, QGridLayout, QSizePolicy, QStackedLayout
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage, QPixmap, QTextCursor
 from threading import Thread
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
@@ -16,6 +16,7 @@ class DroneControlAppUIManager(QWidget):
         super().__init__()
         self.tello_manager = tello_manager  
         self.joystick_manager = JoystickManager()
+        self.tello_manager.log_callback = self.log_action
         self.init_ui()
 
         if self.tello_manager.init_sdk_mode():
@@ -177,6 +178,15 @@ class DroneControlAppUIManager(QWidget):
     def log_action(self, action):
         self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
 
+    def take_photo(self):
+        self.tello_manager.take_photo()  # This will also log via the callback
+
+    def start_video(self):
+        self.tello_manager.start_recording()  # This will also log via the callback
+
+    def stop_video(self):
+        self.tello_manager.stop_recording()
+        
     def set_filter(self, filter_type):
         self.current_filter = filter_type
 
@@ -212,14 +222,24 @@ class DroneControlAppUIManager(QWidget):
     def update_joystick_display(self):
         buttons = self.joystick_manager.get_buttons()
         axes = self.joystick_manager.get_axes()
-        
-        joystick_text = "Joystick Inputs:\n"
-        
+
+        joystick_text = ""
+
+        # Only show buttons that are pressed
         for i, button in enumerate(buttons):
-            joystick_text += f"Button {i+1}: {'Pressed' if button else 'Released'}\n"
-        
+            if button:  # Show only pressed buttons
+                joystick_text += f"Button {i+1}: Pressed\n"
+
+        # Only show axes that have non-neutral values (you can adjust the threshold)
+        axis_threshold = 0.1  # Consider neutral if axis value is within ±0.1 of 0.0
         for i, axis_value in enumerate(axes):
-            joystick_text += f"Axis {i+1}: {axis_value:.2f}\n"
-        
+            if abs(axis_value) > axis_threshold:  # Show only when axis is moved
+                joystick_text += f"Axis {i+1}: {axis_value:.2f}\n"
+
+        # Update the text in the widget
         self.joystick_display_widget.setText(joystick_text)
+
+        # Auto-scroll to the bottom
+        self.joystick_display_widget.moveCursor(QTextCursor.End)
+
 

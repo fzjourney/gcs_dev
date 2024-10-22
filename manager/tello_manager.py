@@ -12,7 +12,7 @@ os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
 
 class TelloManager:
-    def __init__(self):
+    def __init__(self, log_callback=None):
         self.addr = ("192.168.10.1", 8889)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", 9000))
@@ -25,6 +25,7 @@ class TelloManager:
         self.video_writer = None
         self.frame_queue = []
         self.max_frame_queue_size = 10
+        self.log_callback = log_callback
 
     def send_msg(self, command):
         self.sock.sendto(command.encode(), self.addr)
@@ -128,21 +129,23 @@ class TelloManager:
             if not os.path.exists(base_dir):
                 os.makedirs(base_dir)
 
-            # Date format: YYYYMMDD_HHMMSS
             date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            random_str = "".join(
-                random.choices(string.ascii_letters + string.digits, k=2)
-            )
+            random_str = "".join(random.choices(string.ascii_letters + string.digits, k=2))
             filename = f"{date_str}_{random_str}.jpg"
-
             photo_path = os.path.join(base_dir, filename)
-
             cv.imwrite(photo_path, img)
 
             photo_path_normalized = os.path.normpath(photo_path)
-            print(f"Photo taken and saved to {photo_path_normalized}")
+            log_msg = f"Photo taken and saved to {photo_path_normalized}"
+            print(log_msg)
+
+            if self.log_callback:  # Send log message to UI
+                self.log_callback(log_msg)
         else:
-            print("Failed to capture photo")
+            error_msg = "Failed to capture photo"
+            print(error_msg)
+            if self.log_callback:
+                self.log_callback(error_msg)
 
     def start_recording(self):
         base_dir = os.path.join(
@@ -166,7 +169,10 @@ class TelloManager:
             self.record_thread = Thread(target=self.record_video, daemon=True)
             self.record_thread.start()
 
-        print(f"Recording started, saving to {video_path}")
+        log_msg = f"Recording started, saving to {video_path}"
+        print(log_msg)
+        if self.log_callback:
+            self.log_callback(log_msg)
 
     def stop_recording(self):
         self.recording = False
@@ -175,7 +181,10 @@ class TelloManager:
         if self.record_thread:
             self.record_thread.join()
         self.record_thread = None
-        print("Recording stopped")
+        log_msg = "Recording stopped"
+        print(log_msg)
+        if self.log_callback:
+            self.log_callback(log_msg)
 
     def pause_recording(self):
         with self.lock:
