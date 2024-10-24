@@ -40,6 +40,7 @@ class DroneControlAppUIManager(QWidget):
 
         self.recording_active = False
         self.current_filter = "normal"
+        self.zoom_level = 1.0
 
     def init_ui(self):
         self.setWindowTitle("Drone Control Interface")
@@ -194,13 +195,57 @@ class DroneControlAppUIManager(QWidget):
     def update_video_feed(self):
         frame = self.tello_manager.get_current_frame()
         if frame is not None:
+            axis_value = self.joystick_manager.get_axes()[3]  
+
+            if axis_value < 0:  
+                self.zoom_factor = 1.0 + abs(axis_value) * 2 
+            else:  
+                self.zoom_factor = 1.0
+
+            new_width = int(frame.shape[1] * self.zoom_factor)
+            new_height = int(frame.shape[0] * self.zoom_factor)
+            frame = cv2.resize(frame, (new_width, new_height))
+
+            if self.zoom_factor > 1.0:
+                original_height, original_width = frame.shape[:2]
+                crop_width = int(self.video_label.width())
+                crop_height = int(self.video_label.height())
+                center_x, center_y = original_width // 2, original_height // 2
+                half_crop_width = min(crop_width // 2, center_x)
+                half_crop_height = min(crop_height // 2, center_y)
+
+                frame = frame[
+                    center_y - half_crop_height:center_y + half_crop_height,
+                    center_x - half_crop_width:center_x + half_crop_width
+                ]
+
             frame = self.apply_filter(frame)
 
             frame = cv2.resize(frame, (self.video_label.width(), self.video_label.height()))
-            q_img = QImage(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).data, 
+            q_img = QImage(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).data,
                         frame.shape[1], frame.shape[0], QImage.Format_RGB888)
-            
+
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
+
+    def apply_zoom(self, frame):
+        axis_value = self.joystick_manager.get_axes()[3]  
+
+        if axis_value < 0:  # Zoom in
+            self.zoom_level = min(self.zoom_level - axis_value, 3.0) 
+        elif axis_value > 0:  # Zoom out
+            self.zoom_level = max(self.zoom_level - axis_value, 1.0)  
+
+        if self.zoom_level > 1.0:
+            height, width, _ = frame.shape
+            new_width = int(width / self.zoom_level)
+            new_height = int(height / self.zoom_level)
+
+            start_x = (width - new_width) // 2
+            start_y = (height - new_height) // 2
+
+            frame = frame[start_y:start_y + new_height, start_x:start_x + new_width]
+
+        return frame
 
     def apply_filter(self, frame):
         if self.current_filter == "normal":
