@@ -24,6 +24,7 @@ class DroneControlAppUIManager(QWidget):
             self.state_thread.start()
 
         self.tello_manager.start_video_stream()
+        self.tello_manager.apply_filter = self.apply_filter
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_video_feed)
@@ -179,10 +180,10 @@ class DroneControlAppUIManager(QWidget):
         self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
 
     def take_photo(self):
-        self.tello_manager.take_photo()  # This will also log via the callback
+        self.tello_manager.take_photo()
 
     def start_video(self):
-        self.tello_manager.start_recording()  # This will also log via the callback
+        self.tello_manager.start_recording()
 
     def stop_video(self):
         self.tello_manager.stop_recording()
@@ -194,19 +195,27 @@ class DroneControlAppUIManager(QWidget):
         frame = self.tello_manager.get_current_frame()
         if frame is not None:
             frame = self.apply_filter(frame)
+
             frame = cv2.resize(frame, (self.video_label.width(), self.video_label.height()))
-            q_img = QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_RGB888)
+            q_img = QImage(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).data, 
+                        frame.shape[1], frame.shape[0], QImage.Format_RGB888)
+            
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
     def apply_filter(self, frame):
-        if self.current_filter == "bw":
+        if self.current_filter == "normal":
+            return frame
+        elif self.current_filter == "bw":
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, frame = cv2.threshold(gray_frame, 128, 255, cv2.THRESH_BINARY)
+            return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
         elif self.current_filter == "grayscale":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
         elif self.current_filter == "invert":
             frame = cv2.bitwise_not(frame)
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            return frame
+
 
     def update_telemetry_metrics(self):
         state = self.tello_manager.get_state()
@@ -225,21 +234,17 @@ class DroneControlAppUIManager(QWidget):
 
         joystick_text = ""
 
-        # Only show buttons that are pressed
         for i, button in enumerate(buttons):
-            if button:  # Show only pressed buttons
+            if button:  
                 joystick_text += f"Button {i+1}: Pressed\n"
 
-        # Only show axes that have non-neutral values (you can adjust the threshold)
-        axis_threshold = 0.1  # Consider neutral if axis value is within ±0.1 of 0.0
+        axis_threshold = 0.1  
         for i, axis_value in enumerate(axes):
-            if abs(axis_value) > axis_threshold:  # Show only when axis is moved
+            if abs(axis_value) > axis_threshold:  
                 joystick_text += f"Axis {i+1}: {axis_value:.2f}\n"
 
-        # Update the text in the widget
         self.joystick_display_widget.setText(joystick_text)
 
-        # Auto-scroll to the bottom
         self.joystick_display_widget.moveCursor(QTextCursor.End)
 
 

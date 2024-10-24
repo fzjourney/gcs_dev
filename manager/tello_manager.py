@@ -12,7 +12,8 @@ os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
 
 class TelloManager:
-    def __init__(self, log_callback=None):
+    def __init__(self, log_callback=None, apply_filter=None):
+        self.apply_filter = apply_filter
         self.addr = ("192.168.10.1", 8889)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", 9000))
@@ -122,10 +123,12 @@ class TelloManager:
     def take_photo(self):
         img = self.get_current_frame()
         if img is not None:
+            if self.apply_filter:
+                img = self.apply_filter(img)
+
             base_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "..", "drone_capture", "img"
             )
-
             if not os.path.exists(base_dir):
                 os.makedirs(base_dir)
 
@@ -135,11 +138,9 @@ class TelloManager:
             photo_path = os.path.join(base_dir, filename)
             cv.imwrite(photo_path, img)
 
-            photo_path_normalized = os.path.normpath(photo_path)
-            log_msg = f"Photo taken and saved to {photo_path_normalized}"
+            log_msg = f"Photo taken and saved to {photo_path}"
             print(log_msg)
-
-            if self.log_callback:  # Send log message to UI
+            if self.log_callback:
                 self.log_callback(log_msg)
         else:
             error_msg = "Failed to capture photo"
@@ -202,10 +203,9 @@ class TelloManager:
                 if not self.paused and len(self.frame_queue) > 0:
                     frame = self.frame_queue.pop(0)
                     if frame is not None:
+                        if self.apply_filter:
+                            frame = self.apply_filter(frame)
                         self.video_writer.write(frame)
-                        # print("Writing frame...")
-                elif self.paused:
-                    print("Recording paused...")  
             sleep(0.05)
 
     def get_current_frame(self):
