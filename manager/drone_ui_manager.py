@@ -228,6 +228,7 @@ class DroneControlAppUIManager(QWidget):
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
     def apply_zoom(self, frame):
+        # Axis 4: Zoom in/out
         axis_value = self.joystick_manager.get_axes()[3]  
 
         if axis_value < 0:  # Zoom in
@@ -260,7 +261,6 @@ class DroneControlAppUIManager(QWidget):
         elif self.current_filter == "invert":
             frame = cv2.bitwise_not(frame)
             return frame
-
 
     def update_telemetry_metrics(self):
         state = self.tello_manager.get_state()
