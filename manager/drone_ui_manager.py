@@ -11,7 +11,13 @@ from threading import Thread
 from tello_manager import TelloManager
 from controller_manager import JoystickManager
 
+""" 
+    Graphical User Interface (GUI) manager for a drone control application built using PySide6 and OpenCV. 
+    This class encapsulates the functionality needed to interact with a drone, providing controls for takeoff, 
+    landing, and video streaming, while also integrating joystick input for additional control.
+"""
 class DroneControlAppUIManager(QWidget):
+    """ Class Initialization """
     def __init__(self, tello_manager):
         super().__init__()
         self.tello_manager = tello_manager  
@@ -42,6 +48,7 @@ class DroneControlAppUIManager(QWidget):
         self.current_filter = "normal"
         self.zoom_level = 1.0
 
+    """ User Interface Setup """
     def init_ui(self):
         self.setWindowTitle("Drone Control Interface")
         self.setGeometry(100, 100, 800, 500)
@@ -169,6 +176,7 @@ class DroneControlAppUIManager(QWidget):
         metrics_group.setLayout(metrics_layout)
         return metrics_group
 
+    """ Drone Control Actions """
     def takeoff(self):
         self.tello_manager.send_msg("takeoff")
         self.log_action("Takeoff initiated")
@@ -176,9 +184,6 @@ class DroneControlAppUIManager(QWidget):
     def land(self):
         self.tello_manager.send_msg("land")
         self.log_action("Landing initiated")
-
-    def log_action(self, action):
-        self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
 
     def take_photo(self):
         self.tello_manager.take_photo()
@@ -192,6 +197,7 @@ class DroneControlAppUIManager(QWidget):
     def set_filter(self, filter_type):
         self.current_filter = filter_type
 
+    """ Video Feed Management """
     def update_video_feed(self):
         frame = self.tello_manager.get_current_frame()
         if frame is not None:
@@ -262,6 +268,7 @@ class DroneControlAppUIManager(QWidget):
             frame = cv2.bitwise_not(frame)
             return frame
 
+    """ Telemetry Updates """
     def update_telemetry_metrics(self):
         state = self.tello_manager.get_state()
         self.temp_label.setText(f"Temperature: {state.get('temperature', '--')}°C")
@@ -273,6 +280,7 @@ class DroneControlAppUIManager(QWidget):
         self.roll_label.setText(f"Roll: {state.get('roll', '--')}°")
         self.yaw_label.setText(f"Yaw: {state.get('yaw', '--')}°")
 
+    """ Joystick Input Handling """
     def update_joystick_display(self):
         buttons = self.joystick_manager.get_buttons()
         axes = self.joystick_manager.get_axes()
@@ -292,4 +300,7 @@ class DroneControlAppUIManager(QWidget):
 
         self.joystick_display_widget.moveCursor(QTextCursor.End)
 
+    """ Logging """
+    def log_action(self, action):
+        self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
 

@@ -1,5 +1,16 @@
 import pygame
 
+""" 
+    DO NOT TOUCH!
+    UNLESS MAJOR UPDATE IS NEEDED
+    
+    Designed to manage joystick input using the Pygame library. 
+    It initializes the joystick, checks for its availability, and 
+    provides methods to access joystick axes and button states. 
+    It effectively serves as an interface to interact with the joystick, 
+    enabling the retrieval of input data for applications such as gaming or 
+    drone control.
+"""
 class JoystickManager:
     def __init__(self):
         pygame.init()

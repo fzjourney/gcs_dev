@@ -11,7 +11,13 @@ from datetime import datetime
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
 
+""" 
+    Python implementation designed to manage the operations of a DJI Tello drone using its SDK. 
+    This class encompasses various functionalities, including initialization, video streaming, 
+    state management, photo and video recording, and control commands.
+"""
 class TelloManager:
+    """ Initialization and Configuration """
     def __init__(self, log_callback=None, apply_filter=None):
         self.apply_filter = apply_filter
         self.addr = ("192.168.10.1", 8889)
@@ -28,6 +34,16 @@ class TelloManager:
         self.max_frame_queue_size = 10
         self.log_callback = log_callback
 
+    def init_sdk_mode(self):
+        data = self.send_msg("command")
+        if data == "ok":
+            print("Entering SDK Mode")
+            return True
+        else:
+            print("Error initiating SDK Mode")
+            return False
+
+    """ Sending Commands and Receiving Data """
     def send_msg(self, command):
         self.sock.sendto(command.encode(), self.addr)
         data, _ = self.sock.recvfrom(1024)
@@ -77,25 +93,21 @@ class TelloManager:
         except Exception as e:
             print(f"Error parsing state data: {str(e)}")
 
+    """ State Management """
     def get_state(self):
-        """Return the current state data for external access."""
         with self.lock:
             return self.state.copy()
 
+    """ Video Streaming Management """
     def start_video_stream(self):
-        self.send_msg("streamon")
-
-    def stop_video_stream(self):
-        self.send_msg("streamoff")
-
-    def stop_drone_operations(self):
-        data = self.send_msg("land")
-        print("Response:", data)
-        self.video_stream_active = False
-        if self.sock:
-            self.sock.close()
-        if hasattr(self, "state_socket") and self.state_socket:
-            self.state_socket.close()
+        data = self.send_msg("streamon")
+        if data == "ok":
+            thread = Thread(target=self.video_stream)
+            thread.start()
+            return True
+        else:
+            print("Error starting video stream")
+            return False
 
     def video_stream(self):
         cap = cv.VideoCapture("udp://@0.0.0.0:11111")
@@ -120,6 +132,10 @@ class TelloManager:
 
         cap.release()
 
+    def stop_video_stream(self):
+        self.send_msg("streamoff")
+
+    """ Photo and Video Recording """
     def take_photo(self):
         img = self.get_current_frame()
         if img is not None:
@@ -175,6 +191,17 @@ class TelloManager:
         if self.log_callback:
             self.log_callback(log_msg)
 
+    def record_video(self):
+        while self.recording:
+            with self.lock:
+                if not self.paused and len(self.frame_queue) > 0:
+                    frame = self.frame_queue.pop(0)
+                    if frame is not None:
+                        if self.apply_filter:
+                            frame = self.apply_filter(frame)
+                        self.video_writer.write(frame)
+            sleep(0.05)
+
     def stop_recording(self):
         self.recording = False
         if self.video_writer:
@@ -197,44 +224,17 @@ class TelloManager:
             self.paused = False
         print("Recording resumed")
 
-    def record_video(self):
-        while self.recording:
-            with self.lock:
-                if not self.paused and len(self.frame_queue) > 0:
-                    frame = self.frame_queue.pop(0)
-                    if frame is not None:
-                        if self.apply_filter:
-                            frame = self.apply_filter(frame)
-                        self.video_writer.write(frame)
-            sleep(0.05)
-
-    def get_current_frame(self):
-        """Return the latest captured frame for display."""
-        with self.lock:
-            return self.current_frame
-
-    def init_sdk_mode(self):
-        data = self.send_msg("command")
-        if data == "ok":
-            print("Entering SDK Mode")
-            return True
-        else:
-            print("Error initiating SDK Mode")
-            return False
-
-    def start_video_stream(self):
-        data = self.send_msg("streamon")
-        if data == "ok":
-            thread = Thread(target=self.video_stream)
-            thread.start()
-            return True
-        else:
-            print("Error starting video stream")
-            return False
-
+    """ Drone Operations"""
     def stop_drone_operations(self):
         data = self.send_msg("land")
         print("Response:", data)
         self.video_stream_active = False
         if self.sock:
             self.sock.close()
+        if hasattr(self, "state_socket") and self.state_socket:
+            self.state_socket.close()
+
+    """ Frame Management """
+    def get_current_frame(self):
+        with self.lock:
+            return self.current_frame

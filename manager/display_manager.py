@@ -1,6 +1,15 @@
 import pygame
 import time
 
+
+"""
+    TESTING PURPOSES OF THE JOYSTICK DISPLAY
+    
+    Manages the graphical display of joystick inputs using Pygame. 
+    It handles the initialization of the display, rendering text, 
+    drawing axes for joystick values, and updating the screen accordingly.
+"""
+
 class DisplayManager:
     def __init__(self):
         pygame.init()
@@ -20,9 +29,26 @@ class DisplayManager:
         center_x = graph_top_left_x + square_size // 2
         center_y = graph_top_left_y + square_size // 2
 
-        pygame.draw.rect(self.screen, (255, 255, 255), (graph_top_left_x, graph_top_left_y, square_size, square_size), 1)
-        pygame.draw.line(self.screen, (255, 0, 0), (center_x, graph_top_left_y), (center_x, graph_top_left_y + square_size), 1)
-        pygame.draw.line(self.screen, (255, 0, 0), (graph_top_left_x, center_y), (graph_top_left_x + square_size, center_y), 1)
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            (graph_top_left_x, graph_top_left_y, square_size, square_size),
+            1,
+        )
+        pygame.draw.line(
+            self.screen,
+            (255, 0, 0),
+            (center_x, graph_top_left_y),
+            (center_x, graph_top_left_y + square_size),
+            1,
+        )
+        pygame.draw.line(
+            self.screen,
+            (255, 0, 0),
+            (graph_top_left_x, center_y),
+            (graph_top_left_x + square_size, center_y),
+            1,
+        )
 
         axis_0_pos = center_x + int(axes_values[0] * (square_size // 2))
         axis_1_pos = center_y - int(axes_values[1] * (square_size // 2))
@@ -30,7 +56,13 @@ class DisplayManager:
 
         if len(axes_values) > 2:
             roll_pos = center_x + int(axes_values[2] * (square_size // 2))
-            pygame.draw.line(self.screen, (0, 0, 255), (center_x, center_y), (roll_pos, axis_1_pos), 2)
+            pygame.draw.line(
+                self.screen,
+                (0, 0, 255),
+                (center_x, center_y),
+                (roll_pos, axis_1_pos),
+                2,
+            )
 
         self.draw_text("(x)", (graph_top_left_x + square_size + 10, center_y - 10))
         self.draw_text("(y)", (center_x - 10, graph_top_left_y - 30))
