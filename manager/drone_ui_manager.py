@@ -116,12 +116,14 @@ class DroneControlAppUIManager(QWidget):
         self.pitch_label = QLabel("Pitch: --°")
         self.roll_label = QLabel("Roll: --°")
         self.yaw_label = QLabel("Yaw: --°")
+        self.flight_time_label = QLabel("Flight Time: --")
 
         for label in [
             self.battery_label,
             self.pitch_label,
             self.roll_label,
             self.yaw_label,
+            self.flight_time_label,
         ]:
             label.setStyleSheet(
                 "font-size: 20px; padding: 5px; color: white; background-color: rgba(0, 0, 0, 0.5);"
@@ -268,9 +270,20 @@ class DroneControlAppUIManager(QWidget):
             frame = cv2.bitwise_not(frame)
             return frame
 
+    def format_time(self, seconds):
+        seconds = int(seconds)
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        seconds = seconds % 60
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
+
     """ Telemetry Updates """
     def update_telemetry_metrics(self):
         state = self.tello_manager.get_state()
+        
+        flight_time_seconds = state.get('flight_time', 0)
+        formatted_flight_time = self.format_time(flight_time_seconds)
+        
         self.temp_label.setText(f"Temperature: {state.get('temperature', '--')}°C")
         self.speed_label.setText(f"Speed: {state.get('speed', '--')} m/s")
         self.altitude_label.setText(f"Altitude: {state.get('altitude', '--')} m")
@@ -279,6 +292,7 @@ class DroneControlAppUIManager(QWidget):
         self.pitch_label.setText(f"Pitch: {state.get('pitch', '--')}°")
         self.roll_label.setText(f"Roll: {state.get('roll', '--')}°")
         self.yaw_label.setText(f"Yaw: {state.get('yaw', '--')}°")
+        self.flight_time_label.setText(f"Flight Time: {formatted_flight_time}")
 
     """ Joystick Input Handling """
     def update_joystick_display(self):
