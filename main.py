@@ -33,6 +33,13 @@ class DroneControlApp:
                 try:
                     while True:
                         pygame.event.pump()
+                        
+                        """ Press P to send emergency command """
+                        keys = pygame.key.get_pressed()
+                        if keys[pygame.K_p]:
+                            self.tello_manager.send_msg('emergency')
+                            print("Emergency command sent")
+                            sleep(1)
 
                         self.tello_manager.send_msg('command')
 
@@ -67,6 +74,14 @@ class DroneControlApp:
                             sleep(1)
 
                         sleep(0.1)
+                        
+                        """ Button 5 (Up) """
+                        if buttons[4]:
+                            self.tello_manager.send_msg("up 20")
+
+                        """ Button 6 (Down) """
+                        if buttons[5]:
+                            self.tello_manager.send_msg("down 20")
 
                         """ Button 7 and 8 for Takeoff and Land """
                         if len(buttons) > 7:
@@ -83,6 +98,40 @@ class DroneControlApp:
                                 sleep(1)
 
                         sleep(0.1)
+                        
+                        """ Axis 1 (Left/Right) """
+                        if axes[1] == -1:
+                            self.tello_manager.send_msg("left 20")
+                        elif axes[1] == 1:
+                            self.tello_manager.send_msg("right 20")
+
+                        """ Axis 2 (Forward/Backward) """
+                        if axes[2] == -1:
+                            self.tello_manager.send_msg("forward 20")
+                        elif axes[2] == 1:
+                            self.tello_manager.send_msg("back 20")
+                            
+                        """ Axis 3 (Rotation: yaw) """
+                        if axes[3] == 1:
+                            # Rotate right
+                            self.tello_manager.send_msg("cw 20")  
+                        elif axes[3] == -1:
+                            # Rotate left
+                            self.tello_manager.send_msg("ccw 20")  
+                            
+                        """ Flip commands """
+                        # Button 9 - Flip left
+                        if buttons[8]:  
+                            self.tello_manager.send_msg("flip l")
+                        # Button 10 - Flip right
+                        if buttons[9]:  
+                            self.tello_manager.send_msg("flip r")
+                        # Button 11 - Flip forward
+                        if buttons[10]:  
+                            self.tello_manager.send_msg("flip f")
+                        # Button 12 - Flip back    
+                        if buttons[11]:  
+                            self.tello_manager.send_msg("flip b")
 
                 except KeyboardInterrupt:
                     print("Controller stopped")
