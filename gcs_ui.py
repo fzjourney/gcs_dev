@@ -168,6 +168,11 @@ class DroneControlUI(QWidget):
         ret, frame = self.cap.read()
         if not ret:
             return
+        
+        if battery < 30:
+            self.show_notification("Warning: Low Battery", "Battery is below 30%.")
+        if temperature > 40:
+            self.show_notification("Warning: High Temperature", "Temperature exceeds 40°C.")
 
         if self.current_filter == "bw":
             # Convert the frame to grayscale
@@ -207,6 +212,14 @@ class DroneControlUI(QWidget):
         q_img = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
+
+    def show_notification(self, title, message):
+    # """Show a popup notification with the given title and message."""
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.exec()
 
     def closeEvent(self, event):
         """Release the video capture when the window is closed."""
