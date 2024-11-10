@@ -21,8 +21,10 @@ class DroneControlApp:
         self.tello_manager = tello_manager 
         self.joystick_manager = JoystickManager()
         self.recording_active = False
+        self.previous_axes = [0.0] * self.joystick_manager.get_axis_count()
 
     def run(self):
+        AXIS_THRESHOLD = 0.2
         if self.tello_manager.init_sdk_mode():
             state_thread = Thread(target=self.tello_manager.receive_state)
             state_thread.start()
@@ -99,25 +101,38 @@ class DroneControlApp:
 
                         sleep(0.1)
                         
-                        """ Axis 1 (Left/Right) """
-                        if axes[1] == -1:
-                            self.tello_manager.send_msg("left 20")
-                        elif axes[1] == 1:
-                            self.tello_manager.send_msg("right 20")
+                        # Axis controls with thresholds
+                        # AXIS_THRESHOLD = 0.2
 
-                        """ Axis 2 (Forward/Backward) """
-                        if axes[2] == -1:
-                            self.tello_manager.send_msg("forward 20")
-                        elif axes[2] == 1:
-                            self.tello_manager.send_msg("back 20")
-                            
-                        """ Axis 3 (Rotation: yaw) """
-                        if axes[3] == 1:
-                            # Rotate right
-                            self.tello_manager.send_msg("cw 20")  
-                        elif axes[3] == -1:
-                            # Rotate left
-                            self.tello_manager.send_msg("ccw 20")  
+                        # Axis 1 (Left/Right)
+                        if abs(axes[1]) > AXIS_THRESHOLD and abs(axes[1] - self.previous_axes[1]) > 0.1:
+                            if axes[1] < -AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("left 20")
+                                print("Moving left")
+                            elif axes[1] > AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("right 20")
+                                print("Moving right")
+                            self.previous_axes[1] = axes[1]
+
+                        # Axis 2 (Forward/Backward)
+                        if abs(axes[2]) > AXIS_THRESHOLD and abs(axes[2] - self.previous_axes[2]) > 0.1:
+                            if axes[2] < -AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("forward 20")
+                                print("Moving forward")
+                            elif axes[2] > AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("back 20")
+                                print("Moving backward")
+                            self.previous_axes[2] = axes[2]
+
+                        # Axis 3 (Rotation: yaw)
+                        if abs(axes[3]) > AXIS_THRESHOLD and abs(axes[3] - self.previous_axes[3]) > 0.1:
+                            if axes[3] > AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("cw 20")  # Clockwise rotation
+                                print("Rotating clockwise")
+                            elif axes[3] < -AXIS_THRESHOLD:
+                                self.tello_manager.send_msg("ccw 20")  # Counterclockwise rotation
+                                print("Rotating counterclockwise")
+                            self.previous_axes[3] = axes[3]
                             
                         """ Flip commands """
                         # Button 9 - Flip left
