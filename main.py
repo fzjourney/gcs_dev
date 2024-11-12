@@ -22,42 +22,53 @@ class DroneControlApp:
     def __init__(self, tello_manager):
         self.tello_manager = tello_manager 
         self.joystick_manager = JoystickManager()
-        self.recording_active = False  # Track recording state
-        self.previous_axes = [0.0] * self.joystick_manager.get_axis_count()  # Track previous axis states
+        self.recording_active = False  
+        self.previous_axes = [0.0] * self.joystick_manager.get_axis_count() 
 
     def run(self):
-        # Initialize SDK and start state receiving thread if successful
+        """
+        Main loop for the drone controller.
+
+        Starts the state reception thread, initializes the SDK mode, starts the video stream, and enters the main loop.
+
+        In the main loop, it processes the joystick inputs and updates the drone state accordingly.
+
+        The loop can be stopped by sending a KeyboardInterrupt (usually by pressing Ctrl+C).
+
+        :return: None
+        """
         if self.tello_manager.init_sdk_mode():
             state_thread = Thread(target=self.tello_manager.receive_state)
             state_thread.start()
 
-            # Start video stream and run the main loop if successful
             if self.tello_manager.start_video_stream():
                 print("Video stream started")
 
                 try:
-                    # Main control loop
                     while True:
-                        pygame.event.pump()  # Process pygame events
-                        self.process_joystick_inputs()  # Handle joystick inputs
-                        sleep(0.05)  # Reduced sleep for faster input processing
+                        pygame.event.pump() 
+                        self.process_joystick_inputs() 
+                        sleep(0.05)  
                         
                 except KeyboardInterrupt:
                     print("Controller stopped")
 
                 finally:
-                    self.tello_manager.stop_drone_operations()  # Stop all drone operations
-                    pygame.quit()  # Quit pygame
-                    state_thread.join()  # Wait for state thread to finish
+                    self.tello_manager.stop_drone_operations() 
+                    pygame.quit() 
+                    state_thread.join()  
 
     def process_joystick_inputs(self):
-        AXIS_THRESHOLD = 0.3  # Define threshold for axis input sensitivity
+        """
+        Processes the joystick inputs and updates the drone state accordingly.
 
-        # Get current button and axis states
+        :return: None
+        """
+        AXIS_THRESHOLD = 0.3  
+
         buttons = self.joystick_manager.get_buttons()
         axes = self.joystick_manager.get_axes()
 
-        # Check if emergency key (P) is pressed on the keyboard
         keys = pygame.key.get_pressed()
         if keys[pygame.K_p]:
             self.tello_manager.send_msg('emergency')
@@ -110,7 +121,6 @@ class DroneControlApp:
                 print('Land')
                 sleep(1)
 
-        # Continuous axis control
         # Axis 1 (Left/Right)
         if abs(axes[0]) > AXIS_THRESHOLD:
             if axes[0] < -AXIS_THRESHOLD:
@@ -132,13 +142,12 @@ class DroneControlApp:
         # Axis 3 (Rotation: yaw)
         if abs(axes[2]) > AXIS_THRESHOLD:
             if axes[2] > AXIS_THRESHOLD:
-                self.tello_manager.send_msg("cw 20")  # Clockwise rotation
+                self.tello_manager.send_msg("cw 20")  
                 print("Rotating clockwise")
             elif axes[2] < -AXIS_THRESHOLD:
-                self.tello_manager.send_msg("ccw 20")  # Counterclockwise rotation
+                self.tello_manager.send_msg("ccw 20")  
                 print("Rotating counterclockwise")
 
-        # Flip commands
         if buttons[8]:  
             self.tello_manager.send_msg("flip l")
         if buttons[9]:  
@@ -150,18 +159,14 @@ class DroneControlApp:
 
 
 if __name__ == "__main__":
-    # Initialize the Tello manager
     tello_manager = TelloManager()
 
-    # Initialize the QApplication and UI manager
     app = QApplication(sys.argv)
     app_ui = DroneControlAppUIManager(tello_manager)
     app_ui.show()
 
-    # Initialize the main controller
     controller = DroneControlApp(tello_manager)
     controller_thread = Thread(target=controller.run, daemon=True)
     controller_thread.start()
 
-    # Execute the Qt application
     sys.exit(app.exec())
