@@ -25,25 +25,25 @@ from threading import Thread
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
-from Controller import Controller
+from manager.Controller import Controller
 
 class DroneControlAppUIManager(QWidget):
-    def __init__(self, tello_manager):
+    def __init__(self, MetricsSystem):
         super().__init__()
-        self.tello_manager = tello_manager  
-        self.joystick_manager = Controller()
-        self.tello_manager.log_callback = self.log_action
+        self.MetricsSystem = MetricsSystem  
+        self.Controller = Controller()
+        self.MetricsSystem.log_callback = self.log_action
         self.init_ui()
         
         # Check battery level
         self.last_battery_warning = 100 
 
-        if self.tello_manager.init_sdk_mode():
-            self.state_thread = Thread(target=self.tello_manager.receive_state, daemon=True)
+        if self.MetricsSystem.init_sdk_mode():
+            self.state_thread = Thread(target=self.MetricsSystem.receive_state, daemon=True)
             self.state_thread.start()
 
-        self.tello_manager.start_video_stream()
-        self.tello_manager.apply_filter = self.apply_filter
+        self.MetricsSystem.start_video_stream()
+        self.MetricsSystem.apply_filter = self.apply_filter
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_video_feed)
@@ -190,27 +190,27 @@ class DroneControlAppUIManager(QWidget):
         return metrics_group
 
     def takeoff(self):
-        self.tello_manager.send_msg("takeoff")
+        self.MetricsSystem.send_msg("takeoff")
         self.log_action("Takeoff initiated")
 
     def land(self):
-        self.tello_manager.send_msg("land")
+        self.MetricsSystem.send_msg("land")
         self.log_action("Landing initiated")
 
     def take_photo(self):
-        self.tello_manager.take_photo()
+        self.MetricsSystem.take_photo()
 
     def start_video(self):
-        self.tello_manager.start_recording()
+        self.MetricsSystem.start_recording()
 
     def stop_video(self):
-        self.tello_manager.stop_recording()
+        self.MetricsSystem.stop_recording()
         
     def set_filter(self, filter_type):
         self.current_filter = filter_type
 
     def update_video_feed(self):
-        frame = self.tello_manager.get_current_frame()
+        frame = self.MetricsSystem.get_current_frame()
         if frame is not None:
             frame = self.apply_filter(frame)
 
@@ -244,7 +244,7 @@ class DroneControlAppUIManager(QWidget):
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
     def update_telemetry_metrics(self):
-        state = self.tello_manager.get_state()
+        state = self.MetricsSystem.get_state()
         
         flight_time_seconds = state.get('flight_time', 0)
         formatted_flight_time = self.format_time(flight_time_seconds)
@@ -270,8 +270,8 @@ class DroneControlAppUIManager(QWidget):
             self.last_battery_warning = battery_level
 
     def update_joystick_display(self):
-        buttons = self.joystick_manager.get_buttons()
-        axes = self.joystick_manager.get_axes()
+        buttons = self.Controller.get_buttons()
+        axes = self.Controller.get_axes()
 
         joystick_text = ""
 
