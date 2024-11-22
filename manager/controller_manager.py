@@ -1,4 +1,5 @@
 import pygame
+from typing import List
 
 """ 
     DO NOT TOUCH!
@@ -28,10 +29,14 @@ class JoystickManager:
 
         self.joystick = pygame.joystick.Joystick(0)
         self.joystick.init()
+        
+        # Additional
+        self.num_axes = self.joystick.get_numaxes()
+        self.num_buttons = self.joystick.get_numbuttons()
 
         print(f"Joystick name: {self.joystick.get_name()}")
 
-    def get_axes(self):
+    def get_axes(self) -> List[float]:
         """
         Retrieves the current state of the joystick axes.
 
@@ -41,9 +46,10 @@ class JoystickManager:
         :rtype: List[float]
         """
 
-        return [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
+        # return [self.joystick.get_axis(i) for i in range(self.joystick.get_numaxes())]
+        return [self.joystick.get_axis(i) for i in range(self.num_axes)]
 
-    def get_buttons(self):
+    def get_buttons(self) -> List[bool]:
         """
         Retrieves the current state of the joystick buttons.
 
@@ -54,23 +60,26 @@ class JoystickManager:
         """
 
         pygame.event.pump()
-        button_states = [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())]
-        return button_states
+        # button_states = [self.joystick.get_button(i) for i in range(self.joystick.get_numbuttons())]
+        # return button_states
+        return [self.joystick.get_button(i) for i in range(self.num_buttons)]
 
-    def get_axis_count(self):
+    def get_axis_count(self) -> int:
         """
         Retrieves the number of axes on the joystick.
 
         :return: The number of axes on the joystick
         :rtype: int
         """
-        return self.joystick.get_numaxes()
+        # return self.joystick.get_numaxes()
+        return self.num_axes
 
-    def get_button_count(self):
+    def get_button_count(self) -> int:
         """
         Retrieves the number of buttons on the joystick.
 
         :return: The number of buttons on the joystick
         :rtype: int
         """
-        return self.joystick.get_numbuttons()
+        # return self.joystick.get_numbuttons()
+        return self.num_buttons

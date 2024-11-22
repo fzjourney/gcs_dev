@@ -1,23 +1,18 @@
 import sys
 import os
+import pygame
+
 from threading import Thread
 from time import sleep
-
-import pygame
 from PySide6.QtWidgets import QApplication
 
-# Add necessary paths for module imports
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
-# Import required managers
 from manager.tello_manager import TelloManager
 from manager.controller_manager import JoystickManager
-from manager.drone_ui_manager import DroneControlAppUIManager
+from drone_ui_manager import DroneControlAppUIManager
 
-"""
-    Central controller for managing the Tello drone's operations and UI interaction.
-"""
 class DroneControlApp:
     def __init__(self, tello_manager):
         self.tello_manager = tello_manager 
@@ -26,17 +21,6 @@ class DroneControlApp:
         self.previous_axes = [0.0] * self.joystick_manager.get_axis_count() 
 
     def run(self):
-        """
-        Main loop for the drone controller.
-
-        Starts the state reception thread, initializes the SDK mode, starts the video stream, and enters the main loop.
-
-        In the main loop, it processes the joystick inputs and updates the drone state accordingly.
-
-        The loop can be stopped by sending a KeyboardInterrupt (usually by pressing Ctrl+C).
-
-        :return: None
-        """
         if self.tello_manager.init_sdk_mode():
             state_thread = Thread(target=self.tello_manager.receive_state)
             state_thread.start()
@@ -59,11 +43,6 @@ class DroneControlApp:
                     state_thread.join()  
 
     def process_joystick_inputs(self):
-        """
-        Processes the joystick inputs and updates the drone state accordingly.
-
-        :return: None
-        """
         AXIS_THRESHOLD = 0.3  
 
         buttons = self.joystick_manager.get_buttons()
@@ -110,13 +89,14 @@ class DroneControlApp:
         if buttons[5]:
             self.tello_manager.send_msg("down 20")
 
-        # Button 7 and 8 for Takeoff and Land
+        # Button 7 for Takeoff
         if len(buttons) > 7:
-            if buttons[6]:  # Takeoff
+            if buttons[6]:
                 self.tello_manager.send_msg('takeoff')
                 print('Takeoff')
                 sleep(1)
-            elif buttons[7]:  # Land
+        # Button 8 for Land
+            elif buttons[7]:
                 self.tello_manager.send_msg('land')
                 print('Land')
                 sleep(1)
@@ -170,3 +150,4 @@ if __name__ == "__main__":
     controller_thread.start()
 
     sys.exit(app.exec())
+    

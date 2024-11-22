@@ -1,29 +1,42 @@
-from datetime import datetime
-import sys
 import cv2
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,
-    QHBoxLayout, QTextEdit, QGroupBox, QGridLayout, QSizePolicy, QStackedLayout
-)
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap, QTextCursor
-from threading import Thread
-from tello_manager import TelloManager
-from controller_manager import JoystickManager
+import sys
+import os
 
-""" 
-    Graphical User Interface (GUI) manager for a drone control application built using PySide6 and OpenCV. 
-    This class encapsulates the functionality needed to interact with a drone, providing controls for takeoff, 
-    landing, and video streaming, while also integrating joystick input for additional control.
-"""
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, 
+    QPushButton, QLabel,
+    QHBoxLayout, QTextEdit, 
+    QGroupBox, QGridLayout, 
+    QSizePolicy, QStackedLayout, 
+    QMessageBox,
+)
+from PySide6.QtCore import (
+    Qt, 
+    QTimer,
+)
+from PySide6.QtGui import ( 
+    QImage, 
+    QPixmap, 
+    QTextCursor,
+)
+from datetime import datetime
+from threading import Thread
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
+
+from manager.controller_manager import JoystickManager
+
 class DroneControlAppUIManager(QWidget):
-    """ Class Initialization """
     def __init__(self, tello_manager):
         super().__init__()
         self.tello_manager = tello_manager  
         self.joystick_manager = JoystickManager()
         self.tello_manager.log_callback = self.log_action
         self.init_ui()
+        
+        # Check battery level
+        self.last_battery_warning = 100 
 
         if self.tello_manager.init_sdk_mode():
             self.state_thread = Thread(target=self.tello_manager.receive_state, daemon=True)
@@ -46,9 +59,7 @@ class DroneControlAppUIManager(QWidget):
 
         self.recording_active = False
         self.current_filter = "normal"
-        # self.zoom_level = 1.0
 
-    """ User Interface Setup """
     def init_ui(self):
         self.setWindowTitle("Drone Control Interface")
         self.setGeometry(100, 100, 800, 500)
@@ -178,7 +189,6 @@ class DroneControlAppUIManager(QWidget):
         metrics_group.setLayout(metrics_layout)
         return metrics_group
 
-    """ Drone Control Actions """
     def takeoff(self):
         self.tello_manager.send_msg("takeoff")
         self.log_action("Takeoff initiated")
@@ -199,34 +209,9 @@ class DroneControlAppUIManager(QWidget):
     def set_filter(self, filter_type):
         self.current_filter = filter_type
 
-    """ Video Feed Management """
     def update_video_feed(self):
         frame = self.tello_manager.get_current_frame()
         if frame is not None:
-            # axis_value = self.joystick_manager.get_axes()[3]  
-
-            # if axis_value < 0:  
-            #     self.zoom_factor = 1.0 + abs(axis_value) * 2 
-            # else:  
-            #     self.zoom_factor = 1.0
-
-            # new_width = int(frame.shape[1] * self.zoom_factor)
-            # new_height = int(frame.shape[0] * self.zoom_factor)
-            # frame = cv2.resize(frame, (new_width, new_height))
-
-            # if self.zoom_factor > 1.0:
-            #     original_height, original_width = frame.shape[:2]
-            #     crop_width = int(self.video_label.width())
-            #     crop_height = int(self.video_label.height())
-            #     center_x, center_y = original_width // 2, original_height // 2
-            #     half_crop_width = min(crop_width // 2, center_x)
-            #     half_crop_height = min(crop_height // 2, center_y)
-
-            #     frame = frame[
-            #         center_y - half_crop_height:center_y + half_crop_height,
-            #         center_x - half_crop_width:center_x + half_crop_width
-            #     ]
-
             frame = self.apply_filter(frame)
 
             frame = cv2.resize(frame, (self.video_label.width(), self.video_label.height()))
@@ -235,33 +220,14 @@ class DroneControlAppUIManager(QWidget):
 
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
-    # def apply_zoom(self, frame):
-    #     # Axis 4: Zoom in/out
-    #     axis_value = self.joystick_manager.get_axes()[3]  
-
-    #     if axis_value < 0:  # Zoom in
-    #         self.zoom_level = min(self.zoom_level - axis_value, 3.0) 
-    #     elif axis_value > 0:  # Zoom out
-    #         self.zoom_level = max(self.zoom_level - axis_value, 1.0)  
-
-    #     if self.zoom_level > 1.0:
-    #         height, width, _ = frame.shape
-    #         new_width = int(width / self.zoom_level)
-    #         new_height = int(height / self.zoom_level)
-
-    #         start_x = (width - new_width) // 2
-    #         start_y = (height - new_height) // 2
-
-    #         frame = frame[start_y:start_y + new_height, start_x:start_x + new_width]
-
-    #     return frame
-
     def apply_filter(self, frame):
         if self.current_filter == "normal":
             return frame
         elif self.current_filter == "bw":
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            _, frame = cv2.threshold(gray_frame, 128, 255, cv2.THRESH_BINARY)
+            
+            frame = cv2.adaptiveThreshold(gray_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
             return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
         elif self.current_filter == "grayscale":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -277,7 +243,6 @@ class DroneControlAppUIManager(QWidget):
         seconds = seconds % 60
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-    """ Telemetry Updates """
     def update_telemetry_metrics(self):
         state = self.tello_manager.get_state()
         
@@ -293,8 +258,17 @@ class DroneControlAppUIManager(QWidget):
         self.roll_label.setText(f"Roll: {state.get('roll', '--')}°")
         self.yaw_label.setText(f"Yaw: {state.get('yaw', '--')}°")
         self.flight_time_label.setText(f"Flight Time: {formatted_flight_time}")
+        
+        # Battery Warning Logic
+        try:
+            battery_level = int(state.get('battery', 100)) 
+        except ValueError:
+            battery_level = 100
 
-    """ Joystick Input Handling """
+        if battery_level <= 15 and battery_level <= self.last_battery_warning - 5:
+            self.show_battery_warning(battery_level)
+            self.last_battery_warning = battery_level
+
     def update_joystick_display(self):
         buttons = self.joystick_manager.get_buttons()
         axes = self.joystick_manager.get_axes()
@@ -314,7 +288,23 @@ class DroneControlAppUIManager(QWidget):
 
         self.joystick_display_widget.moveCursor(QTextCursor.End)
 
-    """ Logging """
-    def log_action(self, action):
-        self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
+    def log_action(self, message):
+        cursor = self.log_text_edit.textCursor()
+        cursor.movePosition(QTextCursor.Start)
+        
+        if cursor.selectedText(): 
+            cursor.insertText("\n" + message)
+        else:
+            cursor.insertText(message) 
+        
+        self.log_text_edit.setTextCursor(cursor)
+        self.log_text_edit.ensureCursorVisible()
 
+    def show_battery_warning(self, battery_level):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Low Battery Warning")
+        msg.setText(f"Battery level is critically low: {battery_level}%.\nPlease land immediately.")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
+        
