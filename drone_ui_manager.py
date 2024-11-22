@@ -35,7 +35,6 @@ class DroneControlAppUIManager(QWidget):
         self.MetricsSystem.log_callback = self.log_action
         self.init_ui()
         
-        # Check battery level
         self.last_battery_warning = 100 
 
         if self.MetricsSystem.init_sdk_mode():
@@ -259,7 +258,6 @@ class DroneControlAppUIManager(QWidget):
         self.yaw_label.setText(f"Yaw: {state.get('yaw', '--')}°")
         self.flight_time_label.setText(f"Flight Time: {formatted_flight_time}")
         
-        # Battery Warning Logic
         try:
             battery_level = int(state.get('battery', 100)) 
         except ValueError:

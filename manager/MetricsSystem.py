@@ -155,7 +155,7 @@ class MetricsSystem:
         img = self.get_current_frame()
         if img is not None:
             if self.apply_filter:
-                img = self.apply_filter(img)  # Apply the filter if provided
+                img = self.apply_filter(img)  
 
             base_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "..", "drone_capture", "img"
@@ -172,12 +172,12 @@ class MetricsSystem:
             log_msg = f"Photo taken and saved to {photo_path}"
             print(log_msg)
             if self.log_callback:
-                self.log_callback(log_msg)  # Invoke the log callback
+                self.log_callback(log_msg)  
         else:
             error_msg = "Failed to capture photo"
             print(error_msg)
             if self.log_callback:
-                self.log_callback(error_msg)  # Invoke the log callback on error
+                self.log_callback(error_msg) 
 
     def start_recording(self):
         base_dir = os.path.join(
@@ -204,7 +204,7 @@ class MetricsSystem:
         log_msg = f"Recording started, saving to {video_path}"
         print(log_msg)
         if self.log_callback:
-            self.log_callback(log_msg)  # Invoke the log callback when recording starts
+            self.log_callback(log_msg) 
 
     def record_video(self):
         while self.recording:
@@ -213,9 +213,10 @@ class MetricsSystem:
                     frame = self.frame_queue.pop(0)
                     if frame is not None:
                         if self.apply_filter:
-                            frame = self.apply_filter(frame)  # Apply filter to each frame
+                            frame = self.apply_filter(frame)  
                         self.video_writer.write(frame)
             sleep(0.05)
+            
     def stop_recording(self):
         self.recording = False
         if self.video_writer:
@@ -223,10 +224,6 @@ class MetricsSystem:
         if self.record_thread:
             self.record_thread.join()
         self.record_thread = None
-        # log_msg = "Recording stopped"
-        # print(log_msg)
-        # if self.log_callback:
-        #     self.log_callback(log_msg)
 
     def pause_recording(self):
         with self.lock:
