@@ -11,7 +11,7 @@ from datetime import datetime
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
 
-class TelloManager:
+class MetricsSystem:
     def __init__(self, log_callback=None, apply_filter=None):
         self.apply_filter = apply_filter
         self.addr = ("192.168.10.1", 8889)

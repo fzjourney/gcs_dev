@@ -25,13 +25,13 @@ from threading import Thread
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
-from manager.controller_manager import JoystickManager
+from Controller import Controller
 
 class DroneControlAppUIManager(QWidget):
     def __init__(self, tello_manager):
         super().__init__()
         self.tello_manager = tello_manager  
-        self.joystick_manager = JoystickManager()
+        self.joystick_manager = Controller()
         self.tello_manager.log_callback = self.log_action
         self.init_ui()
         

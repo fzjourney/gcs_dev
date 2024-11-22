@@ -9,14 +9,14 @@ from PySide6.QtWidgets import QApplication
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
-from manager.tello_manager import TelloManager
-from manager.controller_manager import JoystickManager
+from manager.MetricsSystem import MetricsSystem
+from manager.Controller import Controller
 from drone_ui_manager import DroneControlAppUIManager
 
 class DroneControlApp:
     def __init__(self, tello_manager):
         self.tello_manager = tello_manager 
-        self.joystick_manager = JoystickManager()
+        self.joystick_manager = Controller()
         self.recording_active = False  
         self.previous_axes = [0.0] * self.joystick_manager.get_axis_count() 
 
@@ -139,7 +139,7 @@ class DroneControlApp:
 
 
 if __name__ == "__main__":
-    tello_manager = TelloManager()
+    tello_manager = MetricsSystem()
 
     app = QApplication(sys.argv)
     app_ui = DroneControlAppUIManager(tello_manager)

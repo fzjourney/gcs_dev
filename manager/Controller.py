@@ -12,10 +12,10 @@ from typing import List
     enabling the retrieval of input data for applications such as gaming or 
     drone control.
 """
-class JoystickManager:
+class Controller:
     def __init__(self):
         """
-        Initializes the JoystickManager by setting up the Pygame library and the joystick.
+        Initializes the Controller by setting up the Pygame library and the joystick.
 
         This constructor checks for the availability of joysticks and initializes the first
         available joystick. If no joystick is found, it exits the application with an error message.
