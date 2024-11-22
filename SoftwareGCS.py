@@ -28,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_
 from manager.MetricsSystem import MetricsSystem
 from manager.Controller import Controller
 from manager.CameraFilter import CameraFilter
+from manager.Log import Log
 
 class SoftwareGCS(QWidget):
     def __init__(self, MetricsSystem):
@@ -35,6 +36,7 @@ class SoftwareGCS(QWidget):
         self.MetricsSystem = MetricsSystem  
         self.Controller = Controller()
         self.CameraFilter = CameraFilter()
+        self.Log = Log()
         self.MetricsSystem.log_callback = self.log_action
         self.init_ui()
         
@@ -166,7 +168,7 @@ class SoftwareGCS(QWidget):
         for i, (name, value) in enumerate(filters.items()):
             button = QPushButton(name)
             button.setStyleSheet("font-size: 20px; padding: 10px;")
-            button.clicked.connect(lambda _, v=value: self.set_filter(v))
+            button.clicked.connect(lambda _, v=value: self.CameraFilter.set_filter(v))
             filter_layout.addWidget(button, i // 2, i % 2)
 
         filter_group.setLayout(filter_layout)
@@ -210,9 +212,6 @@ class SoftwareGCS(QWidget):
 
     def stop_video(self):
         self.MetricsSystem.stop_recording()
-        
-    def set_filter(self, filter_type):
-        self.current_filter = filter_type
 
     def update_video_feed(self):
         frame = self.MetricsSystem.get_current_frame()

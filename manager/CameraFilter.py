@@ -1,6 +1,9 @@
 import cv2
 
 class CameraFilter:
+    def set_filter(self, filter_type):
+        self.current_filter = filter_type
+        
     def apply_filter(self, frame):
         if self.current_filter == "normal":
             return frame
