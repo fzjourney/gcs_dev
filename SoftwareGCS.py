@@ -35,9 +35,14 @@ class SoftwareGCS(QWidget):
         super().__init__()
         self.MetricsSystem = MetricsSystem  
         self.Controller = Controller()
+        
+        self.log_text_edit = QTextEdit()  
+        self.log_text_edit.setReadOnly(True) 
+        
+        self.Log = Log(self.log_text_edit)  
+        self.MetricsSystem.log_callback = self.Log.log_action  
+        
         self.CameraFilter = CameraFilter()
-        self.Log = Log()
-        self.MetricsSystem.log_callback = self.log_action
         self.init_ui()
         
         self.last_battery_warning = 100 
@@ -65,8 +70,7 @@ class SoftwareGCS(QWidget):
 
         # Start joystick control thread
         self.joystick_thread = Thread(target=self.run_joystick_control, daemon=True)
-        self.joystick_thread.start()
-        
+        self.joystick_thread.start()  
     def init_ui(self):
         self.setWindowTitle("Drone Control Interface")
         self.setGeometry(100, 100, 800, 500)
@@ -96,9 +100,9 @@ class SoftwareGCS(QWidget):
         log_group = QGroupBox("Log")
         log_group.setStyleSheet("font-size: 20px")
         log_layout = QVBoxLayout()
-
-        self.log_text_edit = QTextEdit()
-        self.log_text_edit.setReadOnly(True)
+        
+        log_layout.addWidget(self.log_text_edit) 
+        log_group.setLayout(log_layout)
         log_layout.addWidget(self.log_text_edit)
 
         log_group.setLayout(log_layout)
@@ -273,18 +277,6 @@ class SoftwareGCS(QWidget):
 
         self.joystick_display_widget.setText(joystick_text)
         self.joystick_display_widget.moveCursor(QTextCursor.End)
-
-    def log_action(self, message):
-        cursor = self.log_text_edit.textCursor()
-        cursor.movePosition(QTextCursor.Start)
-        
-        if cursor.selectedText(): 
-            cursor.insertText("\n" + message)
-        else:
-            cursor.insertText(message) 
-        
-        self.log_text_edit.setTextCursor(cursor)
-        self.log_text_edit.ensureCursorVisible()
 
     def show_battery_warning(self, battery_level):
         msg = QMessageBox()
