@@ -1,36 +1,60 @@
-from datetime import datetime
-import sys
 import cv2
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,
-    QHBoxLayout, QTextEdit, QGroupBox, QGridLayout, QSizePolicy, QStackedLayout
-)
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap, QTextCursor
+import sys
+import os
+import pygame
 from threading import Thread
-from tello_manager import TelloManager
-from controller_manager import JoystickManager
+from time import sleep
+from datetime import datetime
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, 
+    QPushButton, QLabel, QHBoxLayout, 
+    QTextEdit, QGroupBox, QGridLayout, 
+    QSizePolicy, QStackedLayout, 
+    QMessageBox,
+)
+from PySide6.QtCore import (
+    Qt, 
+    QTimer,
+)
+from PySide6.QtGui import ( 
+    QImage, 
+    QPixmap, 
+    QTextCursor,
+)
 
-""" 
-    Graphical User Interface (GUI) manager for a drone control application built using PySide6 and OpenCV. 
-    This class encapsulates the functionality needed to interact with a drone, providing controls for takeoff, 
-    landing, and video streaming, while also integrating joystick input for additional control.
-"""
-class DroneControlAppUIManager(QWidget):
-    """ Class Initialization """
-    def __init__(self, tello_manager):
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
+
+from manager.MetricsSystem import MetricsSystem
+from manager.Controller import Controller
+from manager.CameraFilter import CameraFilter
+from manager.Log import Log
+
+class SoftwareGCS(QWidget):
+    def __init__(self, MetricsSystem):
         super().__init__()
-        self.tello_manager = tello_manager  
-        self.joystick_manager = JoystickManager()
-        self.tello_manager.log_callback = self.log_action
+        self.MetricsSystem = MetricsSystem  
+        self.Controller = Controller()
+        
+        self.log_text_edit = QTextEdit()  
+        self.log_text_edit.setReadOnly(True) 
+        
+        self.Log = Log(self.log_text_edit)  
+        self.MetricsSystem.log_callback = self.Log.log_action  
+        
+        self.CameraFilter = CameraFilter()
         self.init_ui()
+        
+        self.last_battery_warning = 100 
+        self.recording_active = False  
+        self.current_filter = "normal" 
 
-        if self.tello_manager.init_sdk_mode():
-            self.state_thread = Thread(target=self.tello_manager.receive_state, daemon=True)
+        if self.MetricsSystem.init_sdk_mode():
+            self.state_thread = Thread(target=self.MetricsSystem.receive_state, daemon=True)
             self.state_thread.start()
 
-        self.tello_manager.start_video_stream()
-        self.tello_manager.apply_filter = self.apply_filter
+        self.MetricsSystem.start_video_stream()
+        self.MetricsSystem.apply_filter = self.CameraFilter.apply_filter
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_video_feed)
@@ -44,11 +68,9 @@ class DroneControlAppUIManager(QWidget):
         self.joystick_timer.timeout.connect(self.update_joystick_display)
         self.joystick_timer.start(100)
 
-        self.recording_active = False
-        self.current_filter = "normal"
-        # self.zoom_level = 1.0
-
-    """ User Interface Setup """
+        # Start joystick control thread
+        self.joystick_thread = Thread(target=self.run_joystick_control, daemon=True)
+        self.joystick_thread.start()  
     def init_ui(self):
         self.setWindowTitle("Drone Control Interface")
         self.setGeometry(100, 100, 800, 500)
@@ -78,9 +100,9 @@ class DroneControlAppUIManager(QWidget):
         log_group = QGroupBox("Log")
         log_group.setStyleSheet("font-size: 20px")
         log_layout = QVBoxLayout()
-
-        self.log_text_edit = QTextEdit()
-        self.log_text_edit.setReadOnly(True)
+        
+        log_layout.addWidget(self.log_text_edit) 
+        log_group.setLayout(log_layout)
         log_layout.addWidget(self.log_text_edit)
 
         log_group.setLayout(log_layout)
@@ -150,7 +172,7 @@ class DroneControlAppUIManager(QWidget):
         for i, (name, value) in enumerate(filters.items()):
             button = QPushButton(name)
             button.setStyleSheet("font-size: 20px; padding: 10px;")
-            button.clicked.connect(lambda _, v=value: self.set_filter(v))
+            button.clicked.connect(lambda _, v=value: self.CameraFilter.set_filter(v))
             filter_layout.addWidget(button, i // 2, i % 2)
 
         filter_group.setLayout(filter_layout)
@@ -178,97 +200,33 @@ class DroneControlAppUIManager(QWidget):
         metrics_group.setLayout(metrics_layout)
         return metrics_group
 
-    """ Drone Control Actions """
     def takeoff(self):
-        self.tello_manager.send_msg("takeoff")
+        self.MetricsSystem.send_msg("takeoff")
         self.log_action("Takeoff initiated")
 
     def land(self):
-        self.tello_manager.send_msg("land")
+        self.MetricsSystem.send_msg("land")
         self.log_action("Landing initiated")
 
     def take_photo(self):
-        self.tello_manager.take_photo()
+        self.MetricsSystem.take_photo()
 
     def start_video(self):
-        self.tello_manager.start_recording()
+        self.MetricsSystem.start_recording()
 
     def stop_video(self):
-        self.tello_manager.stop_recording()
-        
-    def set_filter(self, filter_type):
-        self.current_filter = filter_type
+        self.MetricsSystem.stop_recording()
 
-    """ Video Feed Management """
     def update_video_feed(self):
-        frame = self.tello_manager.get_current_frame()
+        frame = self.MetricsSystem.get_current_frame()
         if frame is not None:
-            # axis_value = self.joystick_manager.get_axes()[3]  
-
-            # if axis_value < 0:  
-            #     self.zoom_factor = 1.0 + abs(axis_value) * 2 
-            # else:  
-            #     self.zoom_factor = 1.0
-
-            # new_width = int(frame.shape[1] * self.zoom_factor)
-            # new_height = int(frame.shape[0] * self.zoom_factor)
-            # frame = cv2.resize(frame, (new_width, new_height))
-
-            # if self.zoom_factor > 1.0:
-            #     original_height, original_width = frame.shape[:2]
-            #     crop_width = int(self.video_label.width())
-            #     crop_height = int(self.video_label.height())
-            #     center_x, center_y = original_width // 2, original_height // 2
-            #     half_crop_width = min(crop_width // 2, center_x)
-            #     half_crop_height = min(crop_height // 2, center_y)
-
-            #     frame = frame[
-            #         center_y - half_crop_height:center_y + half_crop_height,
-            #         center_x - half_crop_width:center_x + half_crop_width
-            #     ]
-
-            frame = self.apply_filter(frame)
+            frame = self.CameraFilter.apply_filter(frame)
 
             frame = cv2.resize(frame, (self.video_label.width(), self.video_label.height()))
             q_img = QImage(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).data,
                         frame.shape[1], frame.shape[0], QImage.Format_RGB888)
 
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
-
-    # def apply_zoom(self, frame):
-    #     # Axis 4: Zoom in/out
-    #     axis_value = self.joystick_manager.get_axes()[3]  
-
-    #     if axis_value < 0:  # Zoom in
-    #         self.zoom_level = min(self.zoom_level - axis_value, 3.0) 
-    #     elif axis_value > 0:  # Zoom out
-    #         self.zoom_level = max(self.zoom_level - axis_value, 1.0)  
-
-    #     if self.zoom_level > 1.0:
-    #         height, width, _ = frame.shape
-    #         new_width = int(width / self.zoom_level)
-    #         new_height = int(height / self.zoom_level)
-
-    #         start_x = (width - new_width) // 2
-    #         start_y = (height - new_height) // 2
-
-    #         frame = frame[start_y:start_y + new_height, start_x:start_x + new_width]
-
-    #     return frame
-
-    def apply_filter(self, frame):
-        if self.current_filter == "normal":
-            return frame
-        elif self.current_filter == "bw":
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            _, frame = cv2.threshold(gray_frame, 128, 255, cv2.THRESH_BINARY)
-            return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        elif self.current_filter == "grayscale":
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            return cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        elif self.current_filter == "invert":
-            frame = cv2.bitwise_not(frame)
-            return frame
 
     def format_time(self, seconds):
         seconds = int(seconds)
@@ -277,27 +235,34 @@ class DroneControlAppUIManager(QWidget):
         seconds = seconds % 60
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-    """ Telemetry Updates """
     def update_telemetry_metrics(self):
-        state = self.tello_manager.get_state()
+        state = self.MetricsSystem.get_state()
         
         flight_time_seconds = state.get('flight_time', 0)
         formatted_flight_time = self.format_time(flight_time_seconds)
         
         self.temp_label.setText(f"Temperature: {state.get('temperature', '--')}°C")
         self.speed_label.setText(f"Speed: {state.get('speed', '--')} m/s")
-        self.altitude_label.setText(f"Altitude: {state.get('altitude', '--')} m")
+        self .altitude_label.setText(f"Altitude: {state.get('altitude', '--')} m")
         self.height_label.setText(f"Barometer: {state.get('barometer', '--')} cm")
         self.battery_label.setText(f"Battery: {state.get('battery', '--')}%")
         self.pitch_label.setText(f"Pitch: {state.get('pitch', '--')}°")
         self.roll_label.setText(f"Roll: {state.get('roll', '--')}°")
         self.yaw_label.setText(f"Yaw: {state.get('yaw', '--')}°")
         self.flight_time_label.setText(f"Flight Time: {formatted_flight_time}")
+        
+        try:
+            battery_level = int(state.get('battery', 100)) 
+        except ValueError:
+            battery_level = 100
 
-    """ Joystick Input Handling """
+        if battery_level <= 15 and battery_level <= self.last_battery_warning - 5:
+            self.show_battery_warning(battery_level)
+            self.last_battery_warning = battery_level
+
     def update_joystick_display(self):
-        buttons = self.joystick_manager.get_buttons()
-        axes = self.joystick_manager.get_axes()
+        buttons = self.Controller.get_buttons()
+        axes = self.Controller.get_axes()
 
         joystick_text = ""
 
@@ -311,10 +276,111 @@ class DroneControlAppUIManager(QWidget):
                 joystick_text += f"Axis {i+1}: {axis_value:.2f}\n"
 
         self.joystick_display_widget.setText(joystick_text)
-
         self.joystick_display_widget.moveCursor(QTextCursor.End)
 
-    """ Logging """
-    def log_action(self, action):
-        self.log_text_edit.append(f"{action} - {datetime.now().strftime('%H:%M:%S')}")
+    def show_battery_warning(self, battery_level):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Low Battery Warning")
+        msg.setText(f"Battery level is critically low: {battery_level}%.\nPlease land immediately.")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
 
+    def run_joystick_control(self):
+        AXIS_THRESHOLD = 0.3  
+        while True:
+            pygame.event.pump() 
+            buttons = self.Controller.get_buttons()
+            axes = self.Controller.get_axes()
+
+            # Button 1: Capture photo
+            if buttons[0]:
+                self.MetricsSystem.take_photo()
+                sleep(2)
+
+            # Button 2: Start/stop recording
+            if buttons[1]:
+                if not self.recording_active:
+                    self.MetricsSystem.start_recording()
+                    self.recording_active = True
+                    print('Recording started')
+                else:
+                    self.MetricsSystem.stop_recording()
+                    self.recording_active = False
+                    print('Recording stopped')
+                sleep(1)
+
+            # Button 3: Pause recording
+            if buttons[2] and self.recording_active:
+                self.MetricsSystem.pause_recording()
+                sleep(1)
+
+            # Button 4: Resume recording
+            if buttons[3] and self.recording_active:
+                self.MetricsSystem.resume_recording()
+                sleep(1)
+
+            # Button 5: Move up
+            if buttons[4]:
+                self.MetricsSystem.send_msg("up 20")
+            
+            # Button 6: Move down
+            if buttons[5]:
+                self.MetricsSystem.send_msg("down 20")
+
+            # Button 7 for Takeoff
+            if len(buttons) > 7:
+                if buttons[6]:
+                    self.MetricsSystem.send_msg('takeoff')
+                    print('Takeoff')
+                    sleep(1)
+                # Button 8 for Land
+                elif buttons[7]:
+                    self.MetricsSystem.send_msg('land')
+                    print('Land')
+                    sleep(1)
+
+            # Axis 1 (Left/Right)
+            if abs(axes[0]) > AXIS_THRESHOLD:
+                if axes[0] < -AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("left 20")
+                    print("Moving left")
+                elif axes[0] > AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("right 20")
+                    print("Moving right")
+
+            # Axis 2 (Forward/Backward)
+            if abs(axes[1]) > AXIS_THRESHOLD:
+                if axes[1] < -AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("forward 20")
+                    print("Moving forward")
+                elif axes[1] > AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("back 20")
+                    print("Moving backward")
+
+            # Axis 3 (Rotation: yaw)
+            if abs(axes[2]) > AXIS_THRESHOLD:
+                if axes[2] > AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("cw 20")  
+                    print("Rotating clockwise")
+                elif axes[2] < -AXIS_THRESHOLD:
+                    self.MetricsSystem.send_msg("ccw 20")  
+                    print("Rotating counterclockwise")
+
+            if buttons[8]:  
+                self.MetricsSystem.send_msg("flip l")
+            if buttons[9]:  
+                self.MetricsSystem.send_msg("flip r")
+            if buttons[10]:  
+                self.MetricsSystem.send_msg("flip f")
+            if buttons[11]:  
+                self.MetricsSystem.send_msg("flip b")
+
+if __name__ == "__main__":
+    MetricsSystem = MetricsSystem()
+
+    app = QApplication(sys.argv)
+    app_ui = SoftwareGCS(MetricsSystem)
+    app_ui.show()
+
+    sys.exit(app.exec())
