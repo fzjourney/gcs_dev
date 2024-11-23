@@ -1,6 +1,9 @@
 import cv2
 
 class CameraFilter:
+    def __init__(self):
+        self.current_filter = "normal"  
+
     def set_filter(self, filter_type):
         self.current_filter = filter_type
         
