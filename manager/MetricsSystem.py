@@ -12,7 +12,7 @@ os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
 
 class MetricsSystem:
-    def __init__(self, log_callback=None, apply_filter=None):
+    def __init__(self, log_action=None, apply_filter=None):
         self.apply_filter = apply_filter
         self.addr = ("192.168.10.1", 8889)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -29,7 +29,10 @@ class MetricsSystem:
         self.max_frame_queue_size = 10
         self.record_thread = None
         
-        self.log_callback = log_callback
+        self.log_action = log_action
+    
+        self.paused = False
+        self.video_path = None
 
     def init_sdk_mode(self):
         data = self.send_msg("command")
@@ -39,7 +42,7 @@ class MetricsSystem:
         else:
             print("Error initiating SDK Mode")
             return False
-    
+        
     def send_msg(self, command):
         try:
             self.sock.sendto(command.encode(), self.addr)
@@ -50,9 +53,6 @@ class MetricsSystem:
             return "error"
 
     def receive_state(self):
-        """
-        Continuously listens for state updates from the drone.
-        """
         try:
             serv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             serv_sock.bind(("", 8890))
@@ -67,9 +67,6 @@ class MetricsSystem:
             serv_sock.close()
 
     def parse_state_data(self, state_str):
-        """
-        Parses the state string received from the drone.
-        """
         try:
             data_dict = {}
             for item in state_str.split(";"):
@@ -96,7 +93,7 @@ class MetricsSystem:
 
         except Exception as e:
             print(f"Error parsing state data: {e}")
-    
+              
     @staticmethod
     def calculate_temperature(templ, temph):
         try:
@@ -111,10 +108,12 @@ class MetricsSystem:
         except ValueError:
             return "Unknown"
         
-    def get_state(self):
+    def update_telemetry_metrics(self):
         with self.lock:
             return self.state.copy()
 
+
+# VIDEO STREAM
     def start_video_stream(self):
         data = self.send_msg("streamon")
         if data == "ok":
@@ -171,13 +170,13 @@ class MetricsSystem:
 
             log_msg = f"Photo taken and saved to {photo_path}"
             print(log_msg)
-            if self.log_callback:
-                self.log_callback(log_msg)  
+            if self.log_action:
+                self.log_action(log_msg)  
         else:
             error_msg = "Failed to capture photo"
             print(error_msg)
-            if self.log_callback:
-                self.log_callback(error_msg) 
+            if self.log_action:
+                self.log_action(error_msg) 
 
     def start_recording(self):
         base_dir = os.path.join(
@@ -189,10 +188,9 @@ class MetricsSystem:
         date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         random_str = "".join(random.choices(string.ascii_letters + string.digits, k=2))
         video_filename = f"{date_str}_{random_str}.mp4"
-        video_path = os.path.join(base_dir, video_filename)
-
+        self.video_path = os.path.join(base_dir, video_filename) 
         self.video_writer = cv.VideoWriter(
-            video_path, cv.VideoWriter_fourcc(*"mp4v"), 20.0, (640, 480)
+            self.video_path, cv.VideoWriter_fourcc(*"mp4v"), 20.0, (640, 480)
         )
         self.recording = True
         self.paused = False
@@ -201,10 +199,10 @@ class MetricsSystem:
             self.record_thread = Thread(target=self.record_video, daemon=True)
             self.record_thread.start()
 
-        log_msg = f"Recording started, saving to {video_path}"
+        log_msg = f"Video started, saving to {self.video_path}"
         print(log_msg)
-        if self.log_callback:
-            self.log_callback(log_msg) 
+        if self.log_action:
+            self.log_action(log_msg)
 
     def record_video(self):
         while self.recording:
@@ -221,6 +219,11 @@ class MetricsSystem:
         self.recording = False
         if self.video_writer:
             self.video_writer.release()
+            log_msg = f"Video recording stopped. Video saved at: {self.video_path}"
+            print(log_msg)
+            if self.log_action:
+                self.log_action(log_msg) 
+
         if self.record_thread:
             self.record_thread.join()
         self.record_thread = None
