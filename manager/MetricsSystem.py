@@ -1,4 +1,5 @@
 import os
+import sys
 import socket
 import random
 import string
@@ -10,6 +11,9 @@ from datetime import datetime
 
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "quiet"
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "loglevel;error"
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'manager'))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'drone_capture'))
 
 class MetricsSystem:
     def __init__(self, log_action=None, apply_filter=None):
@@ -111,7 +115,6 @@ class MetricsSystem:
     def update_telemetry_metrics(self):
         with self.lock:
             return self.state.copy()
-
 
 # VIDEO STREAM
     def start_video_stream(self):
