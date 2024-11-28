@@ -1,6 +1,6 @@
 import pygame
-from typing import List
 
+from typing import List
 from PySide6.QtGui import (
     QTextCursor,
 )
