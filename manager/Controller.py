@@ -92,11 +92,11 @@ class Controller:
 
                 # Button 5: Move up
                 if buttons[4]:
-                    MetricsSystem.send_msg("up 20")
+                    MetricsSystem.send_msg("up 30")
                 
                 # Button 6: Move down
                 if buttons[5]:
-                    MetricsSystem.send_msg("down 20")
+                    MetricsSystem.send_msg("down 30")
 
                 # Button 7 for Takeoff
                 if len(buttons) > 7:
@@ -113,28 +113,28 @@ class Controller:
                 # Axis 1 (Left/Right)
                 if abs(axes[0]) > AXIS_THRESHOLD:
                     if axes[0] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("left 20")
+                        MetricsSystem.send_msg("left 40")
                         print("Moving left")
                     elif axes[0] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("right 20")
+                        MetricsSystem.send_msg("right 40")
                         print("Moving right")
 
                 # Axis 2 (Forward/Backward)
                 if abs(axes[1]) > AXIS_THRESHOLD:
                     if axes[1] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("forward 20")
+                        MetricsSystem.send_msg("forward 40")
                         print("Moving forward")
                     elif axes[1] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("back 20")
+                        MetricsSystem.send_msg("back 40")
                         print("Moving backward")
 
                 # Axis 3 (Rotation: yaw)
                 if abs(axes[2]) > AXIS_THRESHOLD:
                     if axes[2] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("cw 20")  
+                        MetricsSystem.send_msg("cw 40")  
                         print("Rotating clockwise")
                     elif axes[2] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("ccw 20")  
+                        MetricsSystem.send_msg("ccw 40")  
                         print("Rotating counterclockwise")
 
                 if buttons[8]:  
