@@ -112,32 +112,41 @@ class Controller:
 
                 # Left/Right (no threshold)
                 if abs(axes[0]) <= 1:  
-                    speed = int(10 + (abs(axes[0]) * 90)) 
+                    move = int(10 + (abs(axes[0]) * 90)) 
                     if axes[0] < 0:  # Moving left
-                        MetricsSystem.send_msg(f"left {speed}")
-                        print(f"Moving left at speed {speed}")
+                        MetricsSystem.send_msg(f"left {move}")
+                        # print(f"Moving left at move {move}")
                     elif axes[0] > 0:  # Moving right
-                        MetricsSystem.send_msg(f"right {speed}")
-                        print(f"Moving right at speed {speed}")
+                        MetricsSystem.send_msg(f"right {move}")
+                        # print(f"Moving right at move {move}")
                 
                 # Forward/Backward (no threshold)
                 if abs(axes[1]) <= 1:  
-                    speed = int(10 + (abs(axes[1]) * 90)) 
+                    move = int(10 + (abs(axes[1]) * 90)) 
                     if axes[1] < 0:  # Moving forward
-                        MetricsSystem.send_msg(f"forward {speed}")
-                        print(f"Moving forward at speed {speed}")
+                        MetricsSystem.send_msg(f"forward {move}")
+                        # print(f"Moving forward at move {move}")
                     elif axes[1] > 0:  # Moving backward
-                        MetricsSystem.send_msg(f"back {speed}")
-                        print(f"Moving backward at speed {speed}")
+                        MetricsSystem.send_msg(f"back {move}")
+                        # print(f"Moving backward at speed {speed}")
 
-                # Axis 3 (Rotation: yaw)
                 if abs(axes[2]) > AXIS_THRESHOLD:
+                    # Hitung derajat rotasi berdasarkan nilai axis dengan batas maksimal 90
+                    rotation_degree = int(abs(axes[2]) * 90)  # Konversi ke integer
                     if axes[2] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("cw 40")  
-                        print("Rotating clockwise")
+                        MetricsSystem.send_msg(f"cw {rotation_degree}")  
+                        print(f"Rotating clockwise: {rotation_degree} degrees")
                     elif axes[2] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("ccw 40")  
-                        print("Rotating counterclockwise")
+                        MetricsSystem.send_msg(f"ccw {rotation_degree}")  
+                        print(f"Rotating counterclockwise: {rotation_degree} degrees")
+                
+                # Speed adjustment using Axis 4 (axes[3])
+                if len(axes) > 3:
+                    speed = int(100 - (axes[3] + 1) * 45) 
+
+                    MetricsSystem.send_msg(f"speed {speed}")
+                    print(f"Speed set to: {speed}")
+
 
                 if buttons[8]:  
                     MetricsSystem.send_msg("flip l")
