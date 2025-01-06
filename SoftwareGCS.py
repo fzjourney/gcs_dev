@@ -186,8 +186,8 @@ class SoftwareGCS(QWidget):
         metrics_layout = QVBoxLayout()
 
         self.temp_label = QLabel("Temperature: --°C")
-        self.speed_label = QLabel("Speed: -- m/s")
-        self.altitude_label = QLabel("Altitude: -- m")
+        self.speed_label = QLabel("Speed: -- cm/s")
+        self.altitude_label = QLabel("Altitude: -- cm")
         self.height_label = QLabel("Barometer: -- cm")
 
         for label in [
@@ -258,8 +258,8 @@ class SoftwareGCS(QWidget):
         formatted_flight_time = self.format_time(flight_time_seconds)
         
         self.temp_label.setText(f"Temperature: {state.get('temperature', '--')}°C")
-        self.speed_label.setText(f"Speed: {state.get('speed', '--')} m/s")
-        self .altitude_label.setText(f"Altitude: {state.get('altitude', '--')} m")
+        self.speed_label.setText(f"Speed: {state.get('speed', '--')} cm/s")
+        self .altitude_label.setText(f"Altitude: {state.get('altitude', '--')} cm")
         self.height_label.setText(f"Barometer: {state.get('barometer', '--')} cm")
         self.battery_label.setText(f"Battery: {state.get('battery', '--')}%")
         self.pitch_label.setText(f"Pitch: {state.get('pitch', '--')}°")
