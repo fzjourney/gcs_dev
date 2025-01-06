@@ -92,11 +92,11 @@ class Controller:
 
                 # Button 5: Move up
                 if buttons[4]:
-                    MetricsSystem.send_msg("up 20")
+                    MetricsSystem.send_msg("up 30")
                 
                 # Button 6: Move down
                 if buttons[5]:
-                    MetricsSystem.send_msg("down 20")
+                    MetricsSystem.send_msg("down 30")
 
                 # Button 7 for Takeoff
                 if len(buttons) > 7:
@@ -110,32 +110,43 @@ class Controller:
                         print('Land')
                         sleep(1)
 
-                # Axis 1 (Left/Right)
-                if abs(axes[0]) > AXIS_THRESHOLD:
-                    if axes[0] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("left 20")
-                        print("Moving left")
-                    elif axes[0] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("right 20")
-                        print("Moving right")
+                # Left/Right (no threshold)
+                if abs(axes[0]) <= 1:  
+                    move = int(10 + (abs(axes[0]) * 90)) 
+                    if axes[0] < 0:  # Moving left
+                        MetricsSystem.send_msg(f"left {move}")
+                        # print(f"Moving left at move {move}")
+                    elif axes[0] > 0:  # Moving right
+                        MetricsSystem.send_msg(f"right {move}")
+                        # print(f"Moving right at move {move}")
+                
+                # Forward/Backward (no threshold)
+                if abs(axes[1]) <= 1:  
+                    move = int(10 + (abs(axes[1]) * 90)) 
+                    if axes[1] < 0:  # Moving forward
+                        MetricsSystem.send_msg(f"forward {move}")
+                        # print(f"Moving forward at move {move}")
+                    elif axes[1] > 0:  # Moving backward
+                        MetricsSystem.send_msg(f"back {move}")
+                        # print(f"Moving backward at speed {speed}")
 
-                # Axis 2 (Forward/Backward)
-                if abs(axes[1]) > AXIS_THRESHOLD:
-                    if axes[1] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("forward 20")
-                        print("Moving forward")
-                    elif axes[1] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("back 20")
-                        print("Moving backward")
-
-                # Axis 3 (Rotation: yaw)
                 if abs(axes[2]) > AXIS_THRESHOLD:
+                    # Hitung derajat rotasi berdasarkan nilai axis dengan batas maksimal 90
+                    rotation_degree = int(abs(axes[2]) * 90)  # Konversi ke integer
                     if axes[2] > AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("cw 20")  
-                        print("Rotating clockwise")
+                        MetricsSystem.send_msg(f"cw {rotation_degree}")  
+                        print(f"Rotating clockwise: {rotation_degree} degrees")
                     elif axes[2] < -AXIS_THRESHOLD:
-                        MetricsSystem.send_msg("ccw 20")  
-                        print("Rotating counterclockwise")
+                        MetricsSystem.send_msg(f"ccw {rotation_degree}")  
+                        print(f"Rotating counterclockwise: {rotation_degree} degrees")
+                
+                # Speed adjustment using Axis 4 (axes[3])
+                if len(axes) > 3:
+                    speed = int(100 - (axes[3] + 1) * 45) 
+
+                    MetricsSystem.send_msg(f"speed {speed}")
+                    print(f"Speed set to: {speed}")
+
 
                 if buttons[8]:  
                     MetricsSystem.send_msg("flip l")
